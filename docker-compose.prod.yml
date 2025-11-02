@@ -1,0 +1,22 @@
+services:
+  api:
+    image: aits/api:latest
+    build:
+      context: ./server/AITS.Api
+      dockerfile: Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__Default=${SQLAZURE_CONNECTION}
+      - Jwt__Issuer=AITS-Auth
+      - Jwt__Audience=AITS-Clients
+      - Jwt__Key=${JWT_KEY}
+    ports:
+      - "7100:8080"
+  client:
+    image: aits/client:latest
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "7101:80"
+

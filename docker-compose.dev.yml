@@ -1,0 +1,26 @@
+services:
+  api:
+    build:
+      context: ./server/AITS.Api
+      dockerfile: Dockerfile
+    container_name: aits-react-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      # Rekomendowane w kontenerze: logowanie SQL zamiast Trusted_Connection
+      # SQL Server na lokalnym hoście - użycie host.docker.internal dla Docker Desktop
+      - ConnectionStrings__Default=Server=host.docker.internal,1433;Database=AITS-React;User Id=aitsadmin;Password=Aithentica12345!;MultipleActiveResultSets=true;TrustServerCertificate=True
+      - Jwt__Issuer=AITS-Auth
+      - Jwt__Audience=AITS-Clients
+      - Jwt__Key=CHANGE_ME_DEV_SECRET_KEY_MIN_32_CHARS_LONG
+    ports:
+      - "7100:8080"
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: aits-react-client
+    depends_on:
+      - api
+    ports:
+      - "7101:80"
+
