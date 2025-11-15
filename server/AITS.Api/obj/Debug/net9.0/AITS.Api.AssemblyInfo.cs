@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AITS.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7272db0a16985c8e36c9360a690a0eb43a377c29")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+21bce372ec06dbd2f7f64ffa63b810e10dbd6334")]
 [assembly: System.Reflection.AssemblyProductAttribute("AITS.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AITS.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -56,126 +56,6 @@ public sealed class PatientSessionsController : ControllerBase
         return Ok(sessions);
     }
 
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetSession(int id)
-    {
-        var userEmail = User.FindFirstValue(ClaimTypes.Name) ?? User.FindFirstValue(ClaimTypes.Email);
-        if (string.IsNullOrEmpty(userEmail))
-            return Unauthorized();
-
-        var session = await _db.Sessions
-            .Where(s => s.Id == id && s.Patient.Email == userEmail)
-            .Include(s => s.Patient)
-            .Include(s => s.Payment)
-            .Select(s => new
-            {
-                s.Id,
-                Patient = new { s.Patient.Id, s.Patient.FirstName, s.Patient.LastName, s.Patient.Email },
-                s.StartDateTime,
-                s.EndDateTime,
-                s.StatusId,
-                s.Price,
-                s.GoogleMeetLink,
-                Payment = s.Payment != null ? new
-                {
-                    s.Payment.Id,
-                    s.Payment.StatusId,
-                    s.Payment.Amount,
-                    s.Payment.CreatedAt,
-                    s.Payment.CompletedAt,
-                    s.Payment.TpayTransactionId
-                } : null,
-                IsPaid = s.Payment != null && s.Payment.StatusId == (int)PaymentStatus.Completed,
-                CanPay = s.Payment == null || s.Payment.StatusId == (int)PaymentStatus.Pending || s.Payment.StatusId == (int)PaymentStatus.Failed
-            })
-            .FirstOrDefaultAsync();
-
-        if (session is null) return NotFound();
-        return Ok(session);
-    }
-
-    [HttpPost("{id}/initiate-payment")]
-    public async Task<IActionResult> InitiatePayment(int id)
-    {
-        var userEmail = User.FindFirstValue(ClaimTypes.Name) ?? User.FindFirstValue(ClaimTypes.Email);
-        if (string.IsNullOrEmpty(userEmail))
-            return Unauthorized();
-
-        var session = await _db.Sessions
-            .Include(s => s.Patient)
-            .Include(s => s.Payment)
-            .FirstOrDefaultAsync(s => s.Id == id && s.Patient.Email == userEmail);
-
-        if (session is null) return NotFound();
-
-        // Sprawdź czy sesja już ma płatność zrealizowaną
-        if (session.Payment != null && session.Payment.StatusId == (int)PaymentStatus.Completed)
-            return BadRequest(new { error = "Sesja jest już opłacona" });
-
-        // Jeśli płatność istnieje ale jest pending/failed, użyj istniejącej
-        Payment? payment = null;
-        string? paymentUrl = null;
-        string? transactionId = null;
-
-        var payerEmail = session.Patient.Email;
-        var payerName = $"{session.Patient.FirstName} {session.Patient.LastName}".Trim();
-        if (string.IsNullOrEmpty(payerName))
-            payerName = payerEmail;
-
-        if (session.PaymentId.HasValue && session.Payment != null)
-        {
-            payment = session.Payment;
-            // Jeśli płatność jest pending lub failed, utwórz nową
-            if (payment.StatusId == (int)PaymentStatus.Pending || payment.StatusId == (int)PaymentStatus.Failed)
-            {
-                // Utwórz nową płatność przez Tpay
-                (paymentUrl, transactionId) = await _paymentService.CreatePaymentAsync(
-                    session.Id, 
-                    session.Price, 
-                    payerEmail, 
-                    payerName);
-                
-                if (string.IsNullOrEmpty(paymentUrl) || string.IsNullOrEmpty(transactionId))
-                    return BadRequest(new { error = "Nie udało się utworzyć płatności" });
-
-                payment.StatusId = (int)PaymentStatus.Pending;
-                payment.TpayTransactionId = transactionId;
-                payment.Amount = session.Price;
-                await _db.SaveChangesAsync();
-            }
-            else
-            {
-                return BadRequest(new { error = "Nie można zainicjować płatności dla tej sesji" });
-            }
-        }
-        else
-        {
-            // Utwórz nową płatność
-            (paymentUrl, transactionId) = await _paymentService.CreatePaymentAsync(
-                session.Id, 
-                session.Price, 
-                payerEmail, 
-                payerName);
-            
-            if (string.IsNullOrEmpty(paymentUrl) || string.IsNullOrEmpty(transactionId))
-                return BadRequest(new { error = "Nie udało się utworzyć płatności" });
-
-            payment = new Payment
-            {
-                SessionId = session.Id,
-                Amount = session.Price,
-                StatusId = (int)PaymentStatus.Pending,
-                TpayTransactionId = transactionId
-            };
-
-            _db.Payments.Add(payment);
-            session.PaymentId = payment.Id;
-            await _db.SaveChangesAsync();
-        }
-
-        return Ok(new { paymentId = payment.Id, paymentUrl, transactionId = payment.TpayTransactionId });
-    }
-
     [HttpGet("metrics")]
     public async Task<IActionResult> GetMyMetrics()
     {
@@ -314,5 +194,125 @@ public sealed class PatientSessionsController : ControllerBase
             .ToListAsync();
 
         return Ok(diaries);
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetSession(int id)
+    {
+        var userEmail = User.FindFirstValue(ClaimTypes.Name) ?? User.FindFirstValue(ClaimTypes.Email);
+        if (string.IsNullOrEmpty(userEmail))
+            return Unauthorized();
+
+        var session = await _db.Sessions
+            .Where(s => s.Id == id && s.Patient.Email == userEmail)
+            .Include(s => s.Patient)
+            .Include(s => s.Payment)
+            .Select(s => new
+            {
+                s.Id,
+                Patient = new { s.Patient.Id, s.Patient.FirstName, s.Patient.LastName, s.Patient.Email },
+                s.StartDateTime,
+                s.EndDateTime,
+                s.StatusId,
+                s.Price,
+                s.GoogleMeetLink,
+                Payment = s.Payment != null ? new
+                {
+                    s.Payment.Id,
+                    s.Payment.StatusId,
+                    s.Payment.Amount,
+                    s.Payment.CreatedAt,
+                    s.Payment.CompletedAt,
+                    s.Payment.TpayTransactionId
+                } : null,
+                IsPaid = s.Payment != null && s.Payment.StatusId == (int)PaymentStatus.Completed,
+                CanPay = s.Payment == null || s.Payment.StatusId == (int)PaymentStatus.Pending || s.Payment.StatusId == (int)PaymentStatus.Failed
+            })
+            .FirstOrDefaultAsync();
+
+        if (session is null) return NotFound();
+        return Ok(session);
+    }
+
+    [HttpPost("{id}/initiate-payment")]
+    public async Task<IActionResult> InitiatePayment(int id)
+    {
+        var userEmail = User.FindFirstValue(ClaimTypes.Name) ?? User.FindFirstValue(ClaimTypes.Email);
+        if (string.IsNullOrEmpty(userEmail))
+            return Unauthorized();
+
+        var session = await _db.Sessions
+            .Include(s => s.Patient)
+            .Include(s => s.Payment)
+            .FirstOrDefaultAsync(s => s.Id == id && s.Patient.Email == userEmail);
+
+        if (session is null) return NotFound();
+
+        // Sprawdź czy sesja już ma płatność zrealizowaną
+        if (session.Payment != null && session.Payment.StatusId == (int)PaymentStatus.Completed)
+            return BadRequest(new { error = "Sesja jest już opłacona" });
+
+        // Jeśli płatność istnieje ale jest pending/failed, użyj istniejącej
+        Payment? payment = null;
+        string? paymentUrl = null;
+        string? transactionId = null;
+
+        var payerEmail = session.Patient.Email;
+        var payerName = $"{session.Patient.FirstName} {session.Patient.LastName}".Trim();
+        if (string.IsNullOrEmpty(payerName))
+            payerName = payerEmail;
+
+        if (session.PaymentId.HasValue && session.Payment != null)
+        {
+            payment = session.Payment;
+            // Jeśli płatność jest pending lub failed, utwórz nową
+            if (payment.StatusId == (int)PaymentStatus.Pending || payment.StatusId == (int)PaymentStatus.Failed)
+            {
+                // Utwórz nową płatność przez Tpay
+                (paymentUrl, transactionId) = await _paymentService.CreatePaymentAsync(
+                    session.Id, 
+                    session.Price, 
+                    payerEmail, 
+                    payerName);
+                
+                if (string.IsNullOrEmpty(paymentUrl) || string.IsNullOrEmpty(transactionId))
+                    return BadRequest(new { error = "Nie udało się utworzyć płatności" });
+
+                payment.StatusId = (int)PaymentStatus.Pending;
+                payment.TpayTransactionId = transactionId;
+                payment.Amount = session.Price;
+                await _db.SaveChangesAsync();
+            }
+            else
+            {
+                return BadRequest(new { error = "Nie można zainicjować płatności dla tej sesji" });
+            }
+        }
+        else
+        {
+            // Utwórz nową płatność
+            (paymentUrl, transactionId) = await _paymentService.CreatePaymentAsync(
+                session.Id, 
+                session.Price, 
+                payerEmail, 
+                payerName);
+            
+            if (string.IsNullOrEmpty(paymentUrl) || string.IsNullOrEmpty(transactionId))
+                return BadRequest(new { error = "Nie udało się utworzyć płatności" });
+
+            payment = new Payment
+            {
+                SessionId = session.Id,
+                Amount = session.Price,
+                StatusId = (int)PaymentStatus.Pending,
+                TpayTransactionId = transactionId
+            };
+
+            _db.Payments.Add(payment);
+            session.PaymentId = payment.Id;
+            await _db.SaveChangesAsync();
+        }
+
+        return Ok(new { paymentId = payment.Id, paymentUrl, transactionId = payment.TpayTransactionId });
     }
 }
