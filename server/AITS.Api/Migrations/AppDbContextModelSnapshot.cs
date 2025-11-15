@@ -33,12 +33,20 @@ namespace AITS.Api.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastActivityAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("bit");
@@ -66,6 +74,14 @@ namespace AITS.Api.Migrations
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("StatusId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.Property<string>("TherapistProfileTherapistId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("bit");
 
@@ -82,6 +98,10 @@ namespace AITS.Api.Migrations
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex")
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
+
+                    b.HasIndex("StatusId");
+
+                    b.HasIndex("TherapistProfileTherapistId");
 
                     b.ToTable("AspNetUsers", (string)null);
                 });
@@ -120,6 +140,21 @@ namespace AITS.Api.Migrations
                         {
                             Id = 3,
                             Name = "PaymentStatus"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Name = "SessionTranscriptionSource"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Name = "UserRole"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Name = "UserStatus"
                         });
                 });
 
@@ -205,6 +240,102 @@ namespace AITS.Api.Migrations
                             Id = 10,
                             Code = "Failed",
                             EnumTypeId = 3
+                        },
+                        new
+                        {
+                            Id = 11,
+                            Code = "ManualText",
+                            EnumTypeId = 4
+                        },
+                        new
+                        {
+                            Id = 12,
+                            Code = "TextFile",
+                            EnumTypeId = 4
+                        },
+                        new
+                        {
+                            Id = 13,
+                            Code = "AudioRecording",
+                            EnumTypeId = 4
+                        },
+                        new
+                        {
+                            Id = 14,
+                            Code = "AudioUpload",
+                            EnumTypeId = 4
+                        },
+                        new
+                        {
+                            Id = 15,
+                            Code = "RealtimeRecording",
+                            EnumTypeId = 4
+                        },
+                        new
+                        {
+                            Id = 16,
+                            Code = "AudioFile",
+                            EnumTypeId = 4
+                        },
+                        new
+                        {
+                            Id = 17,
+                            Code = "VideoFile",
+                            EnumTypeId = 4
+                        },
+                        new
+                        {
+                            Id = 18,
+                            Code = "FinalTranscriptUpload",
+                            EnumTypeId = 4
+                        },
+                        new
+                        {
+                            Id = 19,
+                            Code = "Administrator",
+                            EnumTypeId = 5
+                        },
+                        new
+                        {
+                            Id = 20,
+                            Code = "Terapeuta",
+                            EnumTypeId = 5
+                        },
+                        new
+                        {
+                            Id = 21,
+                            Code = "TerapeutaFreeAccess",
+                            EnumTypeId = 5
+                        },
+                        new
+                        {
+                            Id = 22,
+                            Code = "Pacjent",
+                            EnumTypeId = 5
+                        },
+                        new
+                        {
+                            Id = 23,
+                            Code = "Active",
+                            EnumTypeId = 6
+                        },
+                        new
+                        {
+                            Id = 24,
+                            Code = "Inactive",
+                            EnumTypeId = 6
+                        },
+                        new
+                        {
+                            Id = 25,
+                            Code = "PendingVerification",
+                            EnumTypeId = 6
+                        },
+                        new
+                        {
+                            Id = 26,
+                            Code = "Suspended",
+                            EnumTypeId = 6
                         });
                 });
 
@@ -374,6 +505,230 @@ namespace AITS.Api.Migrations
                             Culture = "en",
                             EnumValueId = 10,
                             Name = "Failed"
+                        },
+                        new
+                        {
+                            Id = 21,
+                            Culture = "pl",
+                            EnumValueId = 11,
+                            Name = "Transkrypcja ręczna"
+                        },
+                        new
+                        {
+                            Id = 22,
+                            Culture = "en",
+                            EnumValueId = 11,
+                            Name = "Manual text"
+                        },
+                        new
+                        {
+                            Id = 23,
+                            Culture = "pl",
+                            EnumValueId = 12,
+                            Name = "Plik tekstowy"
+                        },
+                        new
+                        {
+                            Id = 24,
+                            Culture = "en",
+                            EnumValueId = 12,
+                            Name = "Text file"
+                        },
+                        new
+                        {
+                            Id = 25,
+                            Culture = "pl",
+                            EnumValueId = 13,
+                            Name = "Nagrywanie mikrofonem"
+                        },
+                        new
+                        {
+                            Id = 26,
+                            Culture = "en",
+                            EnumValueId = 13,
+                            Name = "Microphone recording"
+                        },
+                        new
+                        {
+                            Id = 27,
+                            Culture = "pl",
+                            EnumValueId = 14,
+                            Name = "Przesłany plik audio"
+                        },
+                        new
+                        {
+                            Id = 28,
+                            Culture = "en",
+                            EnumValueId = 14,
+                            Name = "Uploaded audio file"
+                        },
+                        new
+                        {
+                            Id = 29,
+                            Culture = "pl",
+                            EnumValueId = 15,
+                            Name = "Nagrywanie na żywo"
+                        },
+                        new
+                        {
+                            Id = 30,
+                            Culture = "en",
+                            EnumValueId = 15,
+                            Name = "Realtime recording"
+                        },
+                        new
+                        {
+                            Id = 31,
+                            Culture = "pl",
+                            EnumValueId = 16,
+                            Name = "Transkrypcja pliku audio"
+                        },
+                        new
+                        {
+                            Id = 32,
+                            Culture = "en",
+                            EnumValueId = 16,
+                            Name = "Audio file transcription"
+                        },
+                        new
+                        {
+                            Id = 33,
+                            Culture = "pl",
+                            EnumValueId = 17,
+                            Name = "Transkrypcja pliku wideo"
+                        },
+                        new
+                        {
+                            Id = 34,
+                            Culture = "en",
+                            EnumValueId = 17,
+                            Name = "Video file transcription"
+                        },
+                        new
+                        {
+                            Id = 35,
+                            Culture = "pl",
+                            EnumValueId = 18,
+                            Name = "Gotowy transkrypt"
+                        },
+                        new
+                        {
+                            Id = 36,
+                            Culture = "en",
+                            EnumValueId = 18,
+                            Name = "Uploaded transcript"
+                        },
+                        new
+                        {
+                            Id = 37,
+                            Culture = "pl",
+                            EnumValueId = 19,
+                            Name = "Administrator"
+                        },
+                        new
+                        {
+                            Id = 38,
+                            Culture = "en",
+                            EnumValueId = 19,
+                            Name = "Administrator"
+                        },
+                        new
+                        {
+                            Id = 39,
+                            Culture = "pl",
+                            EnumValueId = 20,
+                            Name = "Terapeuta"
+                        },
+                        new
+                        {
+                            Id = 40,
+                            Culture = "en",
+                            EnumValueId = 20,
+                            Name = "Therapist"
+                        },
+                        new
+                        {
+                            Id = 41,
+                            Culture = "pl",
+                            EnumValueId = 21,
+                            Name = "Terapeuta z darmowym dostępem"
+                        },
+                        new
+                        {
+                            Id = 42,
+                            Culture = "en",
+                            EnumValueId = 21,
+                            Name = "Therapist with free access"
+                        },
+                        new
+                        {
+                            Id = 43,
+                            Culture = "pl",
+                            EnumValueId = 22,
+                            Name = "Pacjent"
+                        },
+                        new
+                        {
+                            Id = 44,
+                            Culture = "en",
+                            EnumValueId = 22,
+                            Name = "Patient"
+                        },
+                        new
+                        {
+                            Id = 45,
+                            Culture = "pl",
+                            EnumValueId = 23,
+                            Name = "Aktywny"
+                        },
+                        new
+                        {
+                            Id = 46,
+                            Culture = "en",
+                            EnumValueId = 23,
+                            Name = "Active"
+                        },
+                        new
+                        {
+                            Id = 47,
+                            Culture = "pl",
+                            EnumValueId = 24,
+                            Name = "Nieaktywny"
+                        },
+                        new
+                        {
+                            Id = 48,
+                            Culture = "en",
+                            EnumValueId = 24,
+                            Name = "Inactive"
+                        },
+                        new
+                        {
+                            Id = 49,
+                            Culture = "pl",
+                            EnumValueId = 25,
+                            Name = "Oczekuje na weryfikację"
+                        },
+                        new
+                        {
+                            Id = 50,
+                            Culture = "en",
+                            EnumValueId = 25,
+                            Name = "Pending verification"
+                        },
+                        new
+                        {
+                            Id = 51,
+                            Culture = "pl",
+                            EnumValueId = 26,
+                            Name = "Zawieszony"
+                        },
+                        new
+                        {
+                            Id = 52,
+                            Culture = "en",
+                            EnumValueId = 26,
+                            Name = "Suspended"
                         });
                 });
 
@@ -518,12 +873,27 @@ namespace AITS.Api.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("ApartmentNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Country")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("CreatedByUserId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -535,17 +905,40 @@ namespace AITS.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("Gender")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("Notes")
+                    b.Property<string>("LastSessionSummary")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Pesel")
+                        .HasMaxLength(11)
+                        .HasColumnType("nvarchar(11)");
 
                     b.Property<string>("Phone")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("PostalCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Street")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("StreetNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("UserId")
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
@@ -553,7 +946,391 @@ namespace AITS.Api.Migrations
 
                     b.HasIndex("Email");
 
+                    b.HasIndex("Pesel");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasFilter("[UserId] IS NOT NULL");
+
                     b.ToTable("Patient", (string)null);
+                });
+
+            modelBuilder.Entity("PatientDiary", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<DateTime>("EntryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Mood")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("MoodRating")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PatientId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EntryDate");
+
+                    b.HasIndex("PatientId");
+
+                    b.ToTable("PatientDiary", (string)null);
+                });
+
+            modelBuilder.Entity("PatientInformation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Content")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PatientId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PatientInformationTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PatientInformationTypeId");
+
+                    b.HasIndex("PatientId", "PatientInformationTypeId")
+                        .IsUnique();
+
+                    b.ToTable("PatientInformationEntries");
+                });
+
+            modelBuilder.Entity("PatientInformationType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("PatientInformationTypes");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Code = "INITIAL_CONSULTATION",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 1,
+                            IsActive = true,
+                            Name = "Konsultacja wstępna"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Code = "DEMOGRAPHIC_INTERVIEW",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 2,
+                            IsActive = true,
+                            Name = "Wywiad demograficzny"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Code = "DEVELOPMENTAL_INTERVIEW",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 3,
+                            IsActive = true,
+                            Name = "Wywiad rozwojowy"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Code = "PROBLEM_IDENTIFICATION",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 4,
+                            IsActive = true,
+                            Name = "Określenie problemu (Co?)"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Code = "PROBLEM_DESCRIPTION",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 5,
+                            IsActive = true,
+                            Name = "Opis Problemu (Co?) Szczegółowo"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Code = "CONCEPTUALIZATION",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 6,
+                            IsActive = true,
+                            Name = "Konceptualizacja"
+                        },
+                        new
+                        {
+                            Id = 9,
+                            Code = "CONCEPTUALIZATION_LEVEL1",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 61,
+                            IsActive = true,
+                            Name = "Poziom 1: \"Jak?\" (mapa procesów)"
+                        },
+                        new
+                        {
+                            Id = 10,
+                            Code = "CONCEPTUALIZATION_LEVEL2",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 62,
+                            IsActive = true,
+                            Name = "Poziom 2: \"Dlaczego?\" (mechanizmy podtrzymujące)"
+                        },
+                        new
+                        {
+                            Id = 11,
+                            Code = "CONCEPTUALIZATION_SUMMARY",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 63,
+                            IsActive = true,
+                            Name = "Podsumowanie: \"Co zmieniamy?\" (cele zmiany)"
+                        },
+                        new
+                        {
+                            Id = 7,
+                            Code = "STANDARD_SESSION",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 7,
+                            IsActive = true,
+                            Name = "Sesja standardowa"
+                        },
+                        new
+                        {
+                            Id = 8,
+                            Code = "SMART_GOALS",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 8,
+                            IsActive = true,
+                            Name = "Cele SMART"
+                        },
+                        new
+                        {
+                            Id = 12,
+                            Code = "SMART_GOALS_CONNECTIONS",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 81,
+                            IsActive = true,
+                            Name = "Powiązania"
+                        },
+                        new
+                        {
+                            Id = 13,
+                            Code = "SMART_GOALS_DEFINITION",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 82,
+                            IsActive = true,
+                            Name = "Definicja SMART"
+                        },
+                        new
+                        {
+                            Id = 14,
+                            Code = "SMART_GOALS_METRICS",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 83,
+                            IsActive = true,
+                            Name = "Metryka i monitoring"
+                        },
+                        new
+                        {
+                            Id = 15,
+                            Code = "SMART_GOALS_ACTION_PLAN",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 84,
+                            IsActive = true,
+                            Name = "Plan działania"
+                        },
+                        new
+                        {
+                            Id = 16,
+                            Code = "SMART_GOALS_BARRIERS",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 85,
+                            IsActive = true,
+                            Name = "Bariery i wsparcie"
+                        },
+                        new
+                        {
+                            Id = 17,
+                            Code = "SMART_GOALS_REVIEW",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 86,
+                            IsActive = true,
+                            Name = "Przegląd i weryfikacja"
+                        },
+                        new
+                        {
+                            Id = 18,
+                            Code = "SMART_GOALS_PRIORITY",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 87,
+                            IsActive = true,
+                            Name = "Priorytet"
+                        },
+                        new
+                        {
+                            Id = 19,
+                            Code = "DEVELOPMENTAL_INTERVIEW_EARLY_EXPERIENCES",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 31,
+                            IsActive = true,
+                            Name = "Wcześne doświadczenia"
+                        },
+                        new
+                        {
+                            Id = 20,
+                            Code = "DEVELOPMENTAL_INTERVIEW_ADOLESCENCE",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 32,
+                            IsActive = true,
+                            Name = "Adolescencja"
+                        },
+                        new
+                        {
+                            Id = 21,
+                            Code = "DEVELOPMENTAL_INTERVIEW_ADULTHOOD_GENERAL",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 33,
+                            IsActive = true,
+                            Name = "Dorosłość - Pytania ogólne"
+                        },
+                        new
+                        {
+                            Id = 22,
+                            Code = "DEVELOPMENTAL_INTERVIEW_ADULTHOOD_PERSONALITY",
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 34,
+                            IsActive = true,
+                            Name = "Dorosłość - Pytania w kierunku cech nieprawidłowej osobowości"
+                        });
+                });
+
+            modelBuilder.Entity("PatientTask", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime>("DueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsCompleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("PatientId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SessionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TherapistId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DueDate");
+
+                    b.HasIndex("PatientId");
+
+                    b.HasIndex("SessionId");
+
+                    b.HasIndex("TherapistId");
+
+                    b.ToTable("PatientTask", (string)null);
                 });
 
             modelBuilder.Entity("Payment", b =>
@@ -601,6 +1378,9 @@ namespace AITS.Api.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AgreedPersonalWork")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -622,9 +1402,24 @@ namespace AITS.Api.Migrations
                     b.Property<int?>("PaymentId")
                         .HasColumnType("int");
 
+                    b.Property<string>("PersonalWorkDiscussion")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PreviousSessionReflections")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PreviousWeekEvents")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<decimal>("Price")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("SessionSummary")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("SessionTypeId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("StartDateTime")
                         .HasColumnType("datetime2");
@@ -636,6 +1431,9 @@ namespace AITS.Api.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("TherapeuticIntervention")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -643,11 +1441,385 @@ namespace AITS.Api.Migrations
 
                     b.HasIndex("PatientId");
 
+                    b.HasIndex("SessionTypeId");
+
                     b.HasIndex("StartDateTime");
 
                     b.HasIndex("TerapeutaId");
 
                     b.ToTable("Session", (string)null);
+                });
+
+            modelBuilder.Entity("SessionParameter", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ParameterName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("SessionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Value")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId");
+
+                    b.HasIndex("SessionId", "ParameterName")
+                        .IsUnique();
+
+                    b.ToTable("SessionParameter", (string)null);
+                });
+
+            modelBuilder.Entity("SessionTranscription", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("SessionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourceContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("SourceFileName")
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<string>("SourceFilePath")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("TranscriptText")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("SessionTranscription", (string)null);
+                });
+
+            modelBuilder.Entity("SessionTranscriptionSegment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<TimeSpan>("EndOffset")
+                        .HasColumnType("time");
+
+                    b.Property<int>("SessionTranscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SpeakerTag")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<TimeSpan>("StartOffset")
+                        .HasColumnType("time");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionTranscriptionId");
+
+                    b.ToTable("SessionTranscriptionSegment", (string)null);
+                });
+
+            modelBuilder.Entity("SessionType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsSystem")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("IsSystem");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("SessionType", (string)null);
+                });
+
+            modelBuilder.Entity("SessionTypeQuestion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("DisplayOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("SessionTypeId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionTypeId", "DisplayOrder");
+
+                    b.ToTable("SessionTypeQuestion", (string)null);
+                });
+
+            modelBuilder.Entity("SessionTypeTip", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("DisplayOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("SessionTypeId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionTypeId", "DisplayOrder");
+
+                    b.ToTable("SessionTypeTip", (string)null);
+                });
+
+            modelBuilder.Entity("TherapistDocument", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<byte[]>("FileContent")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("TherapistId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("UploadDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TherapistId");
+
+                    b.HasIndex("UploadDate");
+
+                    b.ToTable("TherapistDocuments");
+                });
+
+            modelBuilder.Entity("TherapistGoogleToken", b =>
+                {
+                    b.Property<string>("TerapeutaId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("AccessToken")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RefreshToken")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TokenType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("TerapeutaId");
+
+                    b.ToTable("TherapistGoogleTokens");
+                });
+
+            modelBuilder.Entity("TherapistProfile", b =>
+                {
+                    b.Property<string>("TherapistId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("BusinessAddress")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("BusinessCity")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("BusinessCountry")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("BusinessPostalCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("CompanyName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsCompany")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Regon")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("TaxId")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("TherapistId");
+
+                    b.HasIndex("TaxId");
+
+                    b.ToTable("TherapistProfiles");
                 });
 
             modelBuilder.Entity("Translation", b =>
@@ -845,6 +2017,20 @@ namespace AITS.Api.Migrations
                             Culture = "en",
                             Key = "dashboard.sessionsCompleted",
                             Value = "Completed this month"
+                        },
+                        new
+                        {
+                            Id = 189,
+                            Culture = "pl",
+                            Key = "dashboard.noSessionsToday",
+                            Value = "Brak sesji na dzisiaj"
+                        },
+                        new
+                        {
+                            Id = 190,
+                            Culture = "en",
+                            Key = "dashboard.noSessionsToday",
+                            Value = "No sessions today"
                         },
                         new
                         {
@@ -1172,15 +2358,183 @@ namespace AITS.Api.Migrations
                         {
                             Id = 71,
                             Culture = "pl",
-                            Key = "patients.notes",
-                            Value = "Notatki"
+                            Key = "patients.lastSessionSummary",
+                            Value = "Podsumowanie ostatniej sesji"
                         },
                         new
                         {
                             Id = 72,
                             Culture = "en",
-                            Key = "patients.notes",
-                            Value = "Notes"
+                            Key = "patients.lastSessionSummary",
+                            Value = "Last session summary"
+                        },
+                        new
+                        {
+                            Id = 87,
+                            Culture = "pl",
+                            Key = "patients.dateOfBirth",
+                            Value = "Data urodzenia"
+                        },
+                        new
+                        {
+                            Id = 88,
+                            Culture = "en",
+                            Key = "patients.dateOfBirth",
+                            Value = "Date of birth"
+                        },
+                        new
+                        {
+                            Id = 89,
+                            Culture = "pl",
+                            Key = "patients.gender",
+                            Value = "Płeć"
+                        },
+                        new
+                        {
+                            Id = 90,
+                            Culture = "en",
+                            Key = "patients.gender",
+                            Value = "Gender"
+                        },
+                        new
+                        {
+                            Id = 91,
+                            Culture = "pl",
+                            Key = "patients.pesel",
+                            Value = "PESEL"
+                        },
+                        new
+                        {
+                            Id = 92,
+                            Culture = "en",
+                            Key = "patients.pesel",
+                            Value = "PESEL"
+                        },
+                        new
+                        {
+                            Id = 93,
+                            Culture = "pl",
+                            Key = "patients.street",
+                            Value = "Ulica"
+                        },
+                        new
+                        {
+                            Id = 94,
+                            Culture = "en",
+                            Key = "patients.street",
+                            Value = "Street"
+                        },
+                        new
+                        {
+                            Id = 95,
+                            Culture = "pl",
+                            Key = "patients.streetNumber",
+                            Value = "Numer"
+                        },
+                        new
+                        {
+                            Id = 96,
+                            Culture = "en",
+                            Key = "patients.streetNumber",
+                            Value = "Number"
+                        },
+                        new
+                        {
+                            Id = 97,
+                            Culture = "pl",
+                            Key = "patients.apartmentNumber",
+                            Value = "Nr lokalu"
+                        },
+                        new
+                        {
+                            Id = 98,
+                            Culture = "en",
+                            Key = "patients.apartmentNumber",
+                            Value = "Apartment"
+                        },
+                        new
+                        {
+                            Id = 99,
+                            Culture = "pl",
+                            Key = "patients.city",
+                            Value = "Miasto"
+                        },
+                        new
+                        {
+                            Id = 100,
+                            Culture = "en",
+                            Key = "patients.city",
+                            Value = "City"
+                        },
+                        new
+                        {
+                            Id = 101,
+                            Culture = "pl",
+                            Key = "patients.postalCode",
+                            Value = "Kod pocztowy"
+                        },
+                        new
+                        {
+                            Id = 102,
+                            Culture = "en",
+                            Key = "patients.postalCode",
+                            Value = "Postal code"
+                        },
+                        new
+                        {
+                            Id = 103,
+                            Culture = "pl",
+                            Key = "patients.country",
+                            Value = "Kraj"
+                        },
+                        new
+                        {
+                            Id = 104,
+                            Culture = "en",
+                            Key = "patients.country",
+                            Value = "Country"
+                        },
+                        new
+                        {
+                            Id = 1001,
+                            Culture = "pl",
+                            Key = "patients.informationPanel.title",
+                            Value = "Kluczowe informacje terapeutyczne"
+                        },
+                        new
+                        {
+                            Id = 1002,
+                            Culture = "en",
+                            Key = "patients.informationPanel.title",
+                            Value = "Key therapeutic information"
+                        },
+                        new
+                        {
+                            Id = 1003,
+                            Culture = "pl",
+                            Key = "patients.informationPanel.empty",
+                            Value = "Brak danych. Uzupełnij informacje, aby mieć szybki dostęp podczas sesji."
+                        },
+                        new
+                        {
+                            Id = 1004,
+                            Culture = "en",
+                            Key = "patients.informationPanel.empty",
+                            Value = "No data yet. Fill in the details to have quick access during sessions."
+                        },
+                        new
+                        {
+                            Id = 1005,
+                            Culture = "pl",
+                            Key = "patients.informationPanel.lastUpdated",
+                            Value = "Ostatnia aktualizacja"
+                        },
+                        new
+                        {
+                            Id = 1006,
+                            Culture = "en",
+                            Key = "patients.informationPanel.lastUpdated",
+                            Value = "Last updated"
                         },
                         new
                         {
@@ -1279,7 +2633,728 @@ namespace AITS.Api.Migrations
                             Culture = "en",
                             Key = "sms.session.cancelled",
                             Value = "Session on {date} has been cancelled."
+                        },
+                        new
+                        {
+                            Id = 1007,
+                            Culture = "pl",
+                            Key = "integrations.googleCalendar.nav",
+                            Value = "Integracje"
+                        },
+                        new
+                        {
+                            Id = 1008,
+                            Culture = "en",
+                            Key = "integrations.googleCalendar.nav",
+                            Value = "Integrations"
+                        },
+                        new
+                        {
+                            Id = 105,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.title",
+                            Value = "Transkrypcje sesji"
+                        },
+                        new
+                        {
+                            Id = 106,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.title",
+                            Value = "Session transcriptions"
+                        },
+                        new
+                        {
+                            Id = 107,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.subtitle",
+                            Value = "Każda nowa transkrypcja zastępuje poprzednią. Wybierz jedną z metod pozyskania tekstu rozmowy."
+                        },
+                        new
+                        {
+                            Id = 108,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.subtitle",
+                            Value = "Each new transcript replaces the previous one. Choose one of the methods to capture the conversation."
+                        },
+                        new
+                        {
+                            Id = 109,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.refresh",
+                            Value = "Odśwież listę"
+                        },
+                        new
+                        {
+                            Id = 110,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.refresh",
+                            Value = "Refresh list"
+                        },
+                        new
+                        {
+                            Id = 111,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.realtime.title",
+                            Value = "Nagrywanie z diarizacją w czasie rzeczywistym"
+                        },
+                        new
+                        {
+                            Id = 112,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.realtime.title",
+                            Value = "Real-time recording with diarization"
+                        },
+                        new
+                        {
+                            Id = 113,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.realtime.statusRecording",
+                            Value = "Nagrywanie trwa"
+                        },
+                        new
+                        {
+                            Id = 114,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.realtime.statusRecording",
+                            Value = "Recording in progress"
+                        },
+                        new
+                        {
+                            Id = 115,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.realtime.status.disconnected",
+                            Value = "Rozłączono"
+                        },
+                        new
+                        {
+                            Id = 116,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.realtime.status.disconnected",
+                            Value = "Disconnected"
+                        },
+                        new
+                        {
+                            Id = 117,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.realtime.status.connecting",
+                            Value = "Łączenie..."
+                        },
+                        new
+                        {
+                            Id = 118,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.realtime.status.connecting",
+                            Value = "Connecting..."
+                        },
+                        new
+                        {
+                            Id = 119,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.realtime.status.recording",
+                            Value = "Nagrywanie"
+                        },
+                        new
+                        {
+                            Id = 120,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.realtime.status.recording",
+                            Value = "Recording"
+                        },
+                        new
+                        {
+                            Id = 121,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.realtime.status.stopping",
+                            Value = "Zamykanie..."
+                        },
+                        new
+                        {
+                            Id = 122,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.realtime.status.stopping",
+                            Value = "Stopping..."
+                        },
+                        new
+                        {
+                            Id = 123,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.realtime.status.error",
+                            Value = "Błąd połączenia"
+                        },
+                        new
+                        {
+                            Id = 124,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.realtime.status.error",
+                            Value = "Error"
+                        },
+                        new
+                        {
+                            Id = 125,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.realtime.description",
+                            Value = "Połącz się z Azure Speech i uzyskaj transkrypcję z diarizacją dla maksymalnie 3 osób. Wyniki aktualizują się na bieżąco."
+                        },
+                        new
+                        {
+                            Id = 126,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.realtime.description",
+                            Value = "Connect to Azure Speech and get a diarized transcript for up to 3 speakers. Results update continuously."
+                        },
+                        new
+                        {
+                            Id = 127,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.realtime.connecting",
+                            Value = "Łączenie z usługą Azure..."
+                        },
+                        new
+                        {
+                            Id = 128,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.realtime.connecting",
+                            Value = "Connecting to Azure Speech..."
+                        },
+                        new
+                        {
+                            Id = 129,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.realtime.stop",
+                            Value = "Zatrzymaj nagrywanie na żywo"
+                        },
+                        new
+                        {
+                            Id = 130,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.realtime.stop",
+                            Value = "Stop live recording"
+                        },
+                        new
+                        {
+                            Id = 131,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.realtime.stopping",
+                            Value = "Zamykanie sesji..."
+                        },
+                        new
+                        {
+                            Id = 132,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.realtime.stopping",
+                            Value = "Closing session..."
+                        },
+                        new
+                        {
+                            Id = 133,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.realtime.retry",
+                            Value = "Spróbuj ponownie"
+                        },
+                        new
+                        {
+                            Id = 134,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.realtime.retry",
+                            Value = "Try again"
+                        },
+                        new
+                        {
+                            Id = 135,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.realtime.start",
+                            Value = "Rozpocznij nagrywanie na żywo"
+                        },
+                        new
+                        {
+                            Id = 136,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.realtime.start",
+                            Value = "Start live recording"
+                        },
+                        new
+                        {
+                            Id = 137,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.realtime.error",
+                            Value = "Wystąpił błąd podczas nagrywania."
+                        },
+                        new
+                        {
+                            Id = 138,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.realtime.error",
+                            Value = "An error occurred while recording."
+                        },
+                        new
+                        {
+                            Id = 139,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.realtime.stopError",
+                            Value = "Nie udało się zatrzymać nagrywania."
+                        },
+                        new
+                        {
+                            Id = 140,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.realtime.stopError",
+                            Value = "Failed to stop recording."
+                        },
+                        new
+                        {
+                            Id = 141,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.success",
+                            Value = "Transkrypcja została zapisana (poprzednia wersja została zastąpiona)."
+                        },
+                        new
+                        {
+                            Id = 142,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.success",
+                            Value = "Transcription has been saved (the previous version was replaced)."
+                        },
+                        new
+                        {
+                            Id = 143,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.error",
+                            Value = "Nie udało się przetworzyć pliku."
+                        },
+                        new
+                        {
+                            Id = 144,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.error",
+                            Value = "Could not process the file."
+                        },
+                        new
+                        {
+                            Id = 145,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.audioUploadTitle",
+                            Value = "Transkrypcja z pliku audio (WAV/MP3)"
+                        },
+                        new
+                        {
+                            Id = 146,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.audioUploadTitle",
+                            Value = "Transcription from audio file (WAV/MP3)"
+                        },
+                        new
+                        {
+                            Id = 147,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.audioUploadHint",
+                            Value = "Plik zostanie przesłany do Azure Speech i przetworzony z diarizacją."
+                        },
+                        new
+                        {
+                            Id = 148,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.audioUploadHint",
+                            Value = "The file will be sent to Azure Speech and processed with diarization."
+                        },
+                        new
+                        {
+                            Id = 149,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.audioUploadButton",
+                            Value = "Wybierz plik audio"
+                        },
+                        new
+                        {
+                            Id = 150,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.audioUploadButton",
+                            Value = "Select audio file"
+                        },
+                        new
+                        {
+                            Id = 151,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.videoUploadTitle",
+                            Value = "Transkrypcja z pliku wideo (MP4/MOV/MKV/AVI)"
+                        },
+                        new
+                        {
+                            Id = 152,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.videoUploadTitle",
+                            Value = "Transcription from video file (MP4/MOV/MKV/AVI)"
+                        },
+                        new
+                        {
+                            Id = 153,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.videoUploadHint",
+                            Value = "Ścieżka audio zostanie wyodrębniona lokalnie i przetworzona w Azure Speech."
+                        },
+                        new
+                        {
+                            Id = 154,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.videoUploadHint",
+                            Value = "The audio track will be extracted locally and processed in Azure Speech."
+                        },
+                        new
+                        {
+                            Id = 155,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.videoUploadButton",
+                            Value = "Wybierz plik wideo"
+                        },
+                        new
+                        {
+                            Id = 156,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.videoUploadButton",
+                            Value = "Select video file"
+                        },
+                        new
+                        {
+                            Id = 157,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.transcriptUploadTitle",
+                            Value = "Wgraj gotową transkrypcję (TXT/VTT/SRT)"
+                        },
+                        new
+                        {
+                            Id = 158,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.transcriptUploadTitle",
+                            Value = "Upload final transcript (TXT/VTT/SRT)"
+                        },
+                        new
+                        {
+                            Id = 159,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.transcriptUploadHint",
+                            Value = "Plik zostanie zapisany jako finalny transkrypt bez ponownego przetwarzania."
+                        },
+                        new
+                        {
+                            Id = 160,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.transcriptUploadHint",
+                            Value = "The file will be stored as the final transcript without further processing."
+                        },
+                        new
+                        {
+                            Id = 161,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.transcriptUploadButton",
+                            Value = "Wybierz plik transkryptu"
+                        },
+                        new
+                        {
+                            Id = 162,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.transcriptUploadButton",
+                            Value = "Select transcript file"
+                        },
+                        new
+                        {
+                            Id = 163,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.currentTitle",
+                            Value = "Aktualna transkrypcja"
+                        },
+                        new
+                        {
+                            Id = 164,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.currentTitle",
+                            Value = "Current transcript"
+                        },
+                        new
+                        {
+                            Id = 165,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.preview",
+                            Value = "Pokaż podgląd"
+                        },
+                        new
+                        {
+                            Id = 166,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.preview",
+                            Value = "Show preview"
+                        },
+                        new
+                        {
+                            Id = 167,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.empty",
+                            Value = "Brak zapisanej transkrypcji dla tej sesji."
+                        },
+                        new
+                        {
+                            Id = 168,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.empty",
+                            Value = "No transcript saved for this session."
+                        },
+                        new
+                        {
+                            Id = 169,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.previewTitle",
+                            Value = "Podgląd transkrypcji"
+                        },
+                        new
+                        {
+                            Id = 170,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.previewTitle",
+                            Value = "Transcript preview"
+                        },
+                        new
+                        {
+                            Id = 171,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.download",
+                            Value = "Pobierz źródło"
+                        },
+                        new
+                        {
+                            Id = 172,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.download",
+                            Value = "Download source"
+                        },
+                        new
+                        {
+                            Id = 173,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.source.manual",
+                            Value = "Tekst ręczny"
+                        },
+                        new
+                        {
+                            Id = 174,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.source.manual",
+                            Value = "Manual text"
+                        },
+                        new
+                        {
+                            Id = 175,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.source.textFile",
+                            Value = "Plik transkryptu"
+                        },
+                        new
+                        {
+                            Id = 176,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.source.textFile",
+                            Value = "Transcript file"
+                        },
+                        new
+                        {
+                            Id = 177,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.source.audioRecording",
+                            Value = "Nagranie mikrofonem"
+                        },
+                        new
+                        {
+                            Id = 178,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.source.audioRecording",
+                            Value = "Microphone recording"
+                        },
+                        new
+                        {
+                            Id = 179,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.source.audioUpload",
+                            Value = "Plik audio"
+                        },
+                        new
+                        {
+                            Id = 180,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.source.audioUpload",
+                            Value = "Audio file"
+                        },
+                        new
+                        {
+                            Id = 181,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.source.video",
+                            Value = "Plik wideo"
+                        },
+                        new
+                        {
+                            Id = 182,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.source.video",
+                            Value = "Video file"
+                        },
+                        new
+                        {
+                            Id = 183,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.source.realtime",
+                            Value = "Nagrywanie na żywo"
+                        },
+                        new
+                        {
+                            Id = 184,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.source.realtime",
+                            Value = "Live recording"
+                        },
+                        new
+                        {
+                            Id = 185,
+                            Culture = "pl",
+                            Key = "sessions.transcriptions.source.unknown",
+                            Value = "Nieznane źródło"
+                        },
+                        new
+                        {
+                            Id = 186,
+                            Culture = "en",
+                            Key = "sessions.transcriptions.source.unknown",
+                            Value = "Unknown source"
+                        },
+                        new
+                        {
+                            Id = 187,
+                            Culture = "pl",
+                            Key = "common.close",
+                            Value = "Zamknij"
+                        },
+                        new
+                        {
+                            Id = 188,
+                            Culture = "en",
+                            Key = "common.close",
+                            Value = "Close"
+                        },
+                        new
+                        {
+                            Id = 191,
+                            Culture = "pl",
+                            Key = "common.refresh",
+                            Value = "Odśwież"
+                        },
+                        new
+                        {
+                            Id = 192,
+                            Culture = "en",
+                            Key = "common.refresh",
+                            Value = "Refresh"
+                        },
+                        new
+                        {
+                            Id = 193,
+                            Culture = "pl",
+                            Key = "common.logout",
+                            Value = "Wyloguj"
+                        },
+                        new
+                        {
+                            Id = 194,
+                            Culture = "en",
+                            Key = "common.logout",
+                            Value = "Log out"
                         });
+                });
+
+            modelBuilder.Entity("UserActivityLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DurationSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("EndedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StartedAtUtc");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserActivityLogs");
+                });
+
+            modelBuilder.Entity("UserRoleMapping", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AssignedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("AssignedByUserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedByUserId");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("RoleId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "RoleId")
+                        .IsUnique();
+
+                    b.ToTable("UserRoleMapping", (string)null);
+                });
+
+            modelBuilder.Entity("ApplicationUser", b =>
+                {
+                    b.HasOne("TherapistProfile", "TherapistProfile")
+                        .WithMany()
+                        .HasForeignKey("TherapistProfileTherapistId");
+
+                    b.Navigation("TherapistProfile");
                 });
 
             modelBuilder.Entity("EnumValue", b =>
@@ -1363,7 +3438,70 @@ namespace AITS.Api.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("ApplicationUser", "User")
+                        .WithOne("PatientProfile")
+                        .HasForeignKey("Patient", "UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("CreatedBy");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("PatientDiary", b =>
+                {
+                    b.HasOne("Patient", "Patient")
+                        .WithMany("Diaries")
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Patient");
+                });
+
+            modelBuilder.Entity("PatientInformation", b =>
+                {
+                    b.HasOne("Patient", "Patient")
+                        .WithMany("InformationEntries")
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PatientInformationType", "PatientInformationType")
+                        .WithMany("InformationEntries")
+                        .HasForeignKey("PatientInformationTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Patient");
+
+                    b.Navigation("PatientInformationType");
+                });
+
+            modelBuilder.Entity("PatientTask", b =>
+                {
+                    b.HasOne("Patient", "Patient")
+                        .WithMany("Tasks")
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Session", "Session")
+                        .WithMany("Tasks")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ApplicationUser", "Therapist")
+                        .WithMany()
+                        .HasForeignKey("TherapistId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Patient");
+
+                    b.Navigation("Session");
+
+                    b.Navigation("Therapist");
                 });
 
             modelBuilder.Entity("Payment", b =>
@@ -1385,6 +3523,11 @@ namespace AITS.Api.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("SessionType", "SessionType")
+                        .WithMany("Sessions")
+                        .HasForeignKey("SessionTypeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ApplicationUser", "Terapeuta")
                         .WithMany()
                         .HasForeignKey("TerapeutaId")
@@ -1393,17 +3536,196 @@ namespace AITS.Api.Migrations
 
                     b.Navigation("Patient");
 
+                    b.Navigation("SessionType");
+
                     b.Navigation("Terapeuta");
+                });
+
+            modelBuilder.Entity("SessionParameter", b =>
+                {
+                    b.HasOne("Session", "Session")
+                        .WithMany("Parameters")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("SessionTranscription", b =>
+                {
+                    b.HasOne("ApplicationUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Session", "Session")
+                        .WithMany("Transcriptions")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("SessionTranscriptionSegment", b =>
+                {
+                    b.HasOne("SessionTranscription", "SessionTranscription")
+                        .WithMany("Segments")
+                        .HasForeignKey("SessionTranscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SessionTranscription");
+                });
+
+            modelBuilder.Entity("SessionType", b =>
+                {
+                    b.HasOne("ApplicationUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CreatedBy");
+                });
+
+            modelBuilder.Entity("SessionTypeQuestion", b =>
+                {
+                    b.HasOne("SessionType", "SessionType")
+                        .WithMany("Questions")
+                        .HasForeignKey("SessionTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SessionType");
+                });
+
+            modelBuilder.Entity("SessionTypeTip", b =>
+                {
+                    b.HasOne("SessionType", "SessionType")
+                        .WithMany("Tips")
+                        .HasForeignKey("SessionTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SessionType");
+                });
+
+            modelBuilder.Entity("TherapistDocument", b =>
+                {
+                    b.HasOne("TherapistProfile", "Therapist")
+                        .WithMany("Documents")
+                        .HasForeignKey("TherapistId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Therapist");
+                });
+
+            modelBuilder.Entity("TherapistGoogleToken", b =>
+                {
+                    b.HasOne("ApplicationUser", "Terapeuta")
+                        .WithOne()
+                        .HasForeignKey("TherapistGoogleToken", "TerapeutaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Terapeuta");
+                });
+
+            modelBuilder.Entity("TherapistProfile", b =>
+                {
+                    b.HasOne("ApplicationUser", "Therapist")
+                        .WithOne()
+                        .HasForeignKey("TherapistProfile", "TherapistId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Therapist");
+                });
+
+            modelBuilder.Entity("UserActivityLog", b =>
+                {
+                    b.HasOne("ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("UserRoleMapping", b =>
+                {
+                    b.HasOne("ApplicationUser", "AssignedBy")
+                        .WithMany()
+                        .HasForeignKey("AssignedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ApplicationUser", "User")
+                        .WithMany("RoleMappings")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AssignedBy");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ApplicationUser", b =>
+                {
+                    b.Navigation("PatientProfile");
+
+                    b.Navigation("RoleMappings");
                 });
 
             modelBuilder.Entity("Patient", b =>
                 {
+                    b.Navigation("Diaries");
+
+                    b.Navigation("InformationEntries");
+
                     b.Navigation("Sessions");
+
+                    b.Navigation("Tasks");
+                });
+
+            modelBuilder.Entity("PatientInformationType", b =>
+                {
+                    b.Navigation("InformationEntries");
                 });
 
             modelBuilder.Entity("Session", b =>
                 {
+                    b.Navigation("Parameters");
+
                     b.Navigation("Payment");
+
+                    b.Navigation("Tasks");
+
+                    b.Navigation("Transcriptions");
+                });
+
+            modelBuilder.Entity("SessionTranscription", b =>
+                {
+                    b.Navigation("Segments");
+                });
+
+            modelBuilder.Entity("SessionType", b =>
+                {
+                    b.Navigation("Questions");
+
+                    b.Navigation("Sessions");
+
+                    b.Navigation("Tips");
+                });
+
+            modelBuilder.Entity("TherapistProfile", b =>
+                {
+                    b.Navigation("Documents");
                 });
 #pragma warning restore 612, 618
         }

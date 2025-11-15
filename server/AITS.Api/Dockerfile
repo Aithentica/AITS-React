@@ -10,10 +10,16 @@ EXPOSE 8080
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
-COPY ["AITS.Api.csproj", "/src/"]
-RUN dotnet restore "/src/AITS.Api.csproj"
-COPY . /src
-RUN dotnet publish "/src/AITS.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+# Kopiuj pliki projektu dla lepszego cache'owania
+COPY ["AITS.Api.csproj", "./"]
+RUN dotnet restore "AITS.Api.csproj"
+
+# Kopiuj resztę plików źródłowych (cache się zepsuje jeśli zmienią się pliki)
+COPY . .
+
+# Build i publish
+RUN dotnet publish "AITS.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app

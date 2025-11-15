@@ -8,12 +8,54 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       # Rekomendowane w kontenerze: logowanie SQL zamiast Trusted_Connection
       # SQL Server na lokalnym hoście - użycie host.docker.internal dla Docker Desktop
-      - ConnectionStrings__Default=Server=host.docker.internal,1433;Database=AITS-React;User Id=aitsadmin;Password=Aithentica12345!;MultipleActiveResultSets=true;TrustServerCertificate=True
+      # Wszystkie wrażliwe dane powinny być w pliku .env (nie commituj go!)
+      - ConnectionStrings__Default=${SQL_CONNECTION_STRING}
       - Jwt__Issuer=AITS-Auth
       - Jwt__Audience=AITS-Clients
-      - Jwt__Key=CHANGE_ME_DEV_SECRET_KEY_MIN_32_CHARS_LONG
+      - Jwt__Key=${JWT_KEY}
+      # SMS Configuration
+      - SMS__ApiToken=${SMS__ApiToken}
+      - SMS__SenderName=${SMS__SenderName}
+      - SMS__DefaultPhoneNumber=${SMS__DefaultPhoneNumber}
+      # Azure Speech Configuration
+      - AzureSpeech__SubscriptionKey=${AzureSpeech__SubscriptionKey}
+      - AzureSpeech__Region=${AzureSpeech__Region}
+      - AzureSpeech__Language=${AzureSpeech__Language}
+      - AzureSpeech__MaxSpeakerCount=${AzureSpeech__MaxSpeakerCount}
+      # Email Configuration
+      - Email__SmtpHost=${Email__SmtpHost}
+      - Email__SmtpPort=${Email__SmtpPort}
+      - Email__Username=${Email__Username}
+      - Email__Password=${Email__Password}
+      - Email__FromEmail=${Email__FromEmail}
+      - Email__FromName=${Email__FromName}
+      - Email__UseSsl=${Email__UseSsl}
+      # Google OAuth Configuration
+      - GoogleOAuth__ClientId=${GoogleOAuth__ClientId}
+      - GoogleOAuth__ClientSecret=${GoogleOAuth__ClientSecret}
+      - GoogleOAuth__DefaultRedirectUri=${GoogleOAuth__DefaultRedirectUri}
+      # Google Calendar Configuration
+      - GoogleCalendar__CalendarId=${GoogleCalendar__CalendarId}
+      # Azure AI Configuration
+      - AzureAI__Endpoint=${AzureAI__Endpoint}
+      - AzureAI__ApiKey=${AzureAI__ApiKey}
+      - AzureAI__ModelName=${AzureAI__ModelName}
+      - AzureAI__ModelVersion=${AzureAI__ModelVersion}
+      - AzureAI__MaxTokens=${AzureAI__MaxTokens}
+      - AzureAI__Temperature=${AzureAI__Temperature}
+      # Tpay Configuration
+      - Tpay__ApiUrl=${Tpay__ApiUrl:-https://openapi.sandbox.tpay.com}
+      - Tpay__ClientId=${Tpay__ClientId}
+      - Tpay__ClientSecret=${Tpay__ClientSecret}
     ports:
       - "7100:8080"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - aits-network
   client:
     build:
       context: ./client
@@ -23,4 +65,10 @@ services:
       - api
     ports:
       - "7101:80"
+    networks:
+      - aits-network
+
+networks:
+  aits-network:
+    driver: bridge
 

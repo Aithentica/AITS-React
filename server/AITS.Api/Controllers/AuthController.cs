@@ -1,9 +1,11 @@
+using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
+using AITS.Api.Services.Interfaces;
 
 namespace AITS.Api.Controllers;
 
@@ -14,14 +16,17 @@ public sealed class AuthController : ControllerBase
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly IConfiguration _configuration;
+    private readonly IUserRoleService _userRoleService;
 
     public AuthController(UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IUserRoleService userRoleService)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _configuration = configuration;
+        _userRoleService = userRoleService;
     }
 
     public sealed record LoginRequest(string Email, string Password);
@@ -38,14 +43,26 @@ public sealed class AuthController : ControllerBase
             return Unauthorized();
 
         var roles = await _userManager.GetRolesAsync(user);
+        var userRoles = await _userRoleService.GetUserRolesAsync(user.Id);
+        
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, user.Id),
-            new(ClaimTypes.Name, user.UserName ?? user.Email ?? user.Id)
+            new(ClaimTypes.Name, user.UserName ?? user.Email ?? user.Id),
+            new(ClaimTypes.Email, user.Email ?? user.UserName ?? user.Id),
+            new("StatusId", user.StatusId.ToString())
         };
+        
+        // Dodaj role jako stringi (dla kompatybilności wstecznej)
         claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
+        
+        // Dodaj RoleId jako claim (dla nowej logiki)
+        foreach (var role in userRoles)
+        {
+            claims.Add(new Claim("RoleId", ((int)role).ToString()));
+        }
 
         var token = new JwtSecurityToken(
             issuer: _configuration["Jwt:Issuer"],
@@ -55,7 +72,7 @@ public sealed class AuthController : ControllerBase
             signingCredentials: creds);
 
         var jwt = new JwtSecurityTokenHandler().WriteToken(token);
-        return Ok(new { token = jwt, roles });
+        return Ok(new { token = jwt, roles, roleIds = userRoles.Select(r => (int)r).ToList() });
     }
 
     [HttpPost("seed-admin")]
@@ -85,6 +102,8 @@ public sealed class AuthController : ControllerBase
                     errors = result.Errors.Select(e => e.Description).ToArray() 
                 });
             await _userManager.AddToRoleAsync(admin, Roles.Administrator);
+            // Synchronizuj rolę do UserRoleMapping
+            await _userRoleService.AssignRoleAsync(admin.Id, UserRole.Administrator);
             return Ok(new { 
                 message = $"Admin utworzony: {adminEmail} / Admin123!", 
                 userId = admin.Id,
@@ -131,6 +150,12 @@ public sealed class AuthController : ControllerBase
                 if (result.Succeeded)
                 {
                     await _userManager.AddToRoleAsync(user, userInfo.Role);
+                    // Synchronizuj rolę do UserRoleMapping
+                    var userRole = GetUserRoleFromName(userInfo.Role);
+                    if (userRole.HasValue)
+                    {
+                        await _userRoleService.AssignRoleAsync(user.Id, userRole.Value);
+                    }
                     results.Add(new { 
                         email = userInfo.Email, 
                         password = userInfo.Password, 
@@ -161,6 +186,18 @@ public sealed class AuthController : ControllerBase
         }
 
         return Ok(new { message = "Seeding użytkowników zakończony", users = results });
+    }
+
+    private static UserRole? GetUserRoleFromName(string roleName)
+    {
+        return roleName switch
+        {
+            Roles.Administrator => UserRole.Administrator,
+            Roles.Terapeuta => UserRole.Terapeuta,
+            Roles.TerapeutaFreeAccess => UserRole.TerapeutaFreeAccess,
+            Roles.Pacjent => UserRole.Pacjent,
+            _ => null
+        };
     }
 }
 

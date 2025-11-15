@@ -4,7 +4,8 @@ Param(
     [string]$JwtKey = 'DEV_KEY_CHANGE_ME_MIN_32_CHARS_1234567890',
     [switch]$NoTests,
     [switch]$SkipEfUpdate,
-    [switch]$Detach
+    [switch]$Detach,
+    [switch]$NoCache  # Pełny rebuild bez cache'a Docker
 )
 
 $ErrorActionPreference = 'Stop'
@@ -52,10 +53,35 @@ if (-not $SkipEfUpdate) {
     }
 }
 
-Write-Step "Budowa i uruchomienie kontenerów DEV (API:7100, FRONT:7101)"
-$composeCmd = "docker compose -f docker-compose.dev.yml up --build"
+Write-Step "Zatrzymywanie i usuwanie starych kontenerów DEV"
+$oldErrorAction = $ErrorActionPreference
+$ErrorActionPreference = 'SilentlyContinue'
+docker compose -f docker-compose.dev.yml down | Out-Null
+$ErrorActionPreference = $oldErrorAction
+
+# Opcjonalnie usuń stare obrazy jeśli używamy --no-cache
+if ($NoCache) {
+    Write-Warn "Usuwanie starych obrazów przed pełnym rebuildem"
+    $oldErrorAction = $ErrorActionPreference
+    $ErrorActionPreference = 'SilentlyContinue'
+    docker rmi aits-react-api aits-react-client | Out-Null
+    $ErrorActionPreference = $oldErrorAction
+}
+
+Write-Step "Budowa obrazów Docker (API i Frontend)"
+$buildCmd = "docker compose -f docker-compose.dev.yml build"
+if ($NoCache) {
+    Write-Warn "Pełny rebuild bez cache'a Docker (może potrwać dłużej)"
+    $buildCmd += " --no-cache"
+}
+# Wymuszenie przebudowy obrazów przed uruchomieniem
+$buildCmd += " --pull"
+Invoke-Expression $buildCmd
+
+Write-Step "Uruchamianie kontenerów DEV (API:7100, FRONT:7101)"
+$composeCmd = "docker compose -f docker-compose.dev.yml up --force-recreate"
 if ($Detach) { $composeCmd += " -d" }
-iex $composeCmd
+Invoke-Expression $composeCmd
 
 Write-Ok "Aplikacja DEV uruchomiona."
 Write-Host "API:      http://localhost:7100" -ForegroundColor Magenta

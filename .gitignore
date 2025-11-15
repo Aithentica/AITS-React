@@ -1,0 +1,81 @@
+# Wrażliwe pliki konfiguracyjne
+server/AITS.Api/appsettings.json
+server/AITS.Api/appsettings.Development.json
+server/AITS.Api/appsettings.Production.json
+server/AITS.Api/google-credentials.json
+*.credentials.json
+*.secrets.json
+
+# User Secrets (.NET)
+**/Properties/secrets.json
+
+# Zmienne środowiskowe
+.env
+.env.local
+.env.*.local
+*.env
+
+# Docker Compose z wrażliwymi danymi
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Pliki bin i obj
+**/bin/
+**/obj/
+**/Debug/
+**/Release/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/
+!.vscode/extensions.json
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+*.dll
+*.exe
+*.pdb
+
+# Test results
+TestResults/
+*.trx
+*.coverage
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.bak
+*~
+
+# Skrypty konfiguracyjne z wrażliwymi danymi
+scripts/setup-user-secrets.ps1
+scripts/setup-user-secrets-quick.ps1
+KONFIGURACJA_BEZPIECZENSTWA.md
+

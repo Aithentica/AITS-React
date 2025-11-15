@@ -1,81 +1,153 @@
-using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text;
-using Microsoft.Extensions.Logging;
+using AITS.Api.Configuration;
+using AITS.Api.Services.Interfaces;
+using AITS.Api.Services.Models;
+using Microsoft.Extensions.Options;
 
 namespace AITS.Api.Services;
 
-public sealed class SmsService
+/// <summary>
+/// Integracja z SMSAPI z użyciem oficjalnego klienta SDK.
+/// </summary>
+public sealed class SmsService(ISmsApiClient smsApiClient, IOptions<SmsConfiguration> configuration, ILogger<SmsService> logger) : ISmsService
 {
-    private readonly HttpClient _httpClient;
-    private readonly string _token;
-    private readonly string _senderName;
-    private readonly string _apiUrl;
-    private readonly ILogger<SmsService> _logger;
+    private readonly ISmsApiClient _smsApiClient = smsApiClient;
+    private readonly SmsConfiguration _configuration = configuration.Value;
+    private readonly ILogger<SmsService> _logger = logger;
 
-    public SmsService(HttpClient httpClient, IConfiguration configuration, ILogger<SmsService> logger)
-    {
-        _httpClient = httpClient;
-        _token = configuration["SMS:ApiToken"] ?? throw new InvalidOperationException("SMS:ApiToken not configured");
-        _senderName = configuration["SMS:SenderName"] ?? "AITerapia";
-        _apiUrl = configuration["SMS:ApiUrl"] ?? "https://api.smsapi.pl/sms.do";
-        _logger = logger;
-        
-        // SMSAPI może używać autoryzacji OAuth Bearer w nagłówku lub tokena w formularzu
-        // Najpierw spróbujemy z tokenem w formularzu (standardowy sposób)
-        _httpClient.DefaultRequestHeaders.Clear();
-    }
-
-    public async Task<(bool Success, string? ErrorMessage)> SendSmsAsync(string phoneNumber, string message)
+    public async Task<SmsSendResult> SendAsync(SmsSendRequest request, CancellationToken cancellationToken = default)
     {
         try
         {
-            // SMSAPI wymaga form-data (application/x-www-form-urlencoded)
-            // Autoryzacja może być:
-            // 1. OAuth Bearer token w nagłówku (obecna implementacja)
-            // 2. Token OAuth w formularzu jako parametr 'access_token'
-            // Spróbujemy obu metod
-            
-            var formData = new List<KeyValuePair<string, string>>
-            {
-                new KeyValuePair<string, string>("to", phoneNumber),
-                new KeyValuePair<string, string>("message", message),
-                new KeyValuePair<string, string>("from", _senderName),
-                // Dodajemy token w formularzu jako alternatywa
-                new KeyValuePair<string, string>("access_token", _token)
-            };
+            var normalizedNumber = NormalizeTo48(CleanPhoneNumber(request.PhoneNumber));
+            var sender = ValidateSender(request.SenderName ?? _configuration.SenderName);
 
-            var content = new FormUrlEncodedContent(formData);
-            
-            // SMSAPI wymaga tokena w formularzu jako 'access_token' (nie w nagłówku Authorization)
-            var response = await _httpClient.PostAsync(_apiUrl, content);
-            var responseContent = await response.Content.ReadAsStringAsync();
-            
-            _logger.LogInformation("SMSAPI Response: Status={StatusCode}, Content={Content}", 
-                response.StatusCode, responseContent);
-            
-            if (!response.IsSuccessStatusCode)
+            var response = await _smsApiClient.SendAsync(normalizedNumber, request.Message, sender, _configuration.TestMode, cancellationToken);
+
+            if (response.Success)
             {
-                _logger.LogError("SMSAPI Error: Status={StatusCode}, Content={Content}", 
-                    response.StatusCode, responseContent);
-                return (false, $"SMSAPI Error {response.StatusCode}: {responseContent}");
+                _logger.LogInformation("SMS wysłany: id={Id} points={Points}", response.MessageId, response.Points);
+                return new SmsSendResult(true, response.MessageId, null, response.Points, 1);
             }
-            
-            // SMSAPI zwraca tekst, sprawdzamy czy nie ma błędów w odpowiedzi
-            if (responseContent.Contains("ERROR:") || responseContent.Contains("error"))
-            {
-                _logger.LogError("SMSAPI Error in response: {Content}", responseContent);
-                return (false, $"SMSAPI Error: {responseContent}");
-            }
-            
-            _logger.LogInformation("SMS sent successfully to {PhoneNumber}", phoneNumber);
-            return (true, null);
+
+            _logger.LogError("SMS wysyłka nieudana: {Error}", response.ErrorMessage);
+            return new SmsSendResult(false, response.MessageId, response.ErrorMessage, response.Points);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Exception while sending SMS to {PhoneNumber}", phoneNumber);
-            return (false, $"Exception: {ex.Message}");
+            _logger.LogError(ex, "SMS unexpected error: {Message}", ex.Message);
+            return new SmsSendResult(false, null, $"Unexpected error: {ex.Message}");
         }
+    }
+
+    public async Task<SmsStatusResult> GetStatusAsync(string messageId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _smsApiClient.GetStatusAsync(messageId, cancellationToken);
+            return new SmsStatusResult(
+                messageId,
+                response.Status,
+                response.PhoneNumber,
+                TryParseErrorCode(response.ErrorCode),
+                null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching SMS status {MessageId}", messageId);
+            return new SmsStatusResult(messageId, "ERROR", null, 500);
+        }
+    }
+
+    public async Task<SmsBalanceResult> GetBalanceAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _smsApiClient.GetBalanceAsync(cancellationToken);
+            return new SmsBalanceResult(response.Points, "PLN");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching SMS balance");
+            return new SmsBalanceResult(0m, "PLN");
+        }
+    }
+
+    private static string CleanPhoneNumber(string phoneNumber)
+    {
+        return new string(phoneNumber.Where(c => char.IsDigit(c) || c == '+').ToArray());
+    }
+
+    private static string NormalizeTo48(string phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone))
+        {
+            return phone;
+        }
+
+        if (phone.StartsWith("+48", StringComparison.Ordinal))
+        {
+            return phone;
+        }
+
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        if (digits.StartsWith("48", StringComparison.Ordinal))
+        {
+            return "+" + digits;
+        }
+
+        if (digits.StartsWith("0", StringComparison.Ordinal) && digits.Length >= 10)
+        {
+            return "+48" + digits[1..];
+        }
+
+        if (digits.Length == 9)
+        {
+            return "+48" + digits;
+        }
+
+        return "+" + digits;
+    }
+
+    private string ValidateSender(string? senderName)
+    {
+        if (string.IsNullOrWhiteSpace(senderName))
+        {
+            _logger.LogWarning("Pusta nazwa nadawcy, używam domyślnej");
+            senderName = _configuration.SenderName;
+        }
+
+        var normalized = senderName
+            .Replace("ą", "a").Replace("ć", "c").Replace("ę", "e")
+            .Replace("ł", "l").Replace("ń", "n").Replace("ó", "o")
+            .Replace("ś", "s").Replace("ź", "z").Replace("ż", "z")
+            .Replace("Ą", "A").Replace("Ć", "C").Replace("Ę", "E")
+            .Replace("Ł", "L").Replace("Ń", "N").Replace("Ó", "O")
+            .Replace("Ś", "S").Replace("Ź", "Z").Replace("Ż", "Z");
+
+        var cleaned = new string(normalized.Where(char.IsLetterOrDigit).ToArray());
+        if (cleaned.Length > 11)
+        {
+            cleaned = cleaned[..11];
+            _logger.LogInformation("Nazwa nadawcy skrócona do: {Sender}", cleaned);
+        }
+
+        if (string.IsNullOrEmpty(cleaned) || cleaned.Length < 2)
+        {
+            _logger.LogWarning("Nieprawidłowa nazwa nadawcy {SenderName}, używam awaryjnej wartości", senderName);
+            return "SMSAPI";
+        }
+
+        return cleaned.ToUpperInvariant();
+    }
+
+    private static int? TryParseErrorCode(string? value)
+    {
+        if (int.TryParse(value, out var code))
+        {
+            return code;
+        }
+
+        return null;
     }
 }
 

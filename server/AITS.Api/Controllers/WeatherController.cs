@@ -8,7 +8,7 @@ namespace AITS.Api.Controllers;
 public sealed class WeatherController : ControllerBase
 {
     [HttpGet]
-    [Authorize(Roles = Roles.Administrator + "," + Roles.Terapeuta)]
+    [Authorize(Policy = "IsTherapistOrAdmin")]
     public IActionResult Get()
     {
         var summaries = new[] { "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching" };

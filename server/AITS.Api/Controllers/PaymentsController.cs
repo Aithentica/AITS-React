@@ -22,7 +22,7 @@ public sealed class PaymentsController : ControllerBase
     public sealed record CreatePaymentRequest(int SessionId, decimal Amount);
 
     [HttpPost("create")]
-    [Authorize(Roles = Roles.Terapeuta + "," + Roles.TerapeutaFreeAccess + "," + Roles.Administrator)]
+    [Authorize(Policy = "IsTherapistOrAdmin")]
     public async Task<IActionResult> Create([FromBody] CreatePaymentRequest request)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -34,7 +34,16 @@ public sealed class PaymentsController : ControllerBase
         if (session.PaymentId.HasValue) return BadRequest(new { error = "Payment already exists for this session" });
         
         // Utworzenie płatności przez Tpay
-        var (paymentUrl, transactionId) = await _paymentService.CreatePaymentAsync(request.SessionId, request.Amount);
+        var payerEmail = session.Patient.Email;
+        var payerName = $"{session.Patient.FirstName} {session.Patient.LastName}".Trim();
+        if (string.IsNullOrEmpty(payerName))
+            payerName = payerEmail;
+        
+        var (paymentUrl, transactionId) = await _paymentService.CreatePaymentAsync(
+            request.SessionId, 
+            request.Amount, 
+            payerEmail, 
+            payerName);
         
         if (string.IsNullOrEmpty(paymentUrl) || string.IsNullOrEmpty(transactionId))
             return BadRequest(new { error = "Failed to create payment" });
@@ -60,7 +69,11 @@ public sealed class PaymentsController : ControllerBase
     {
         try
         {
-            var transactionId = notification.ContainsKey("title") ? notification["title"]?.ToString() : null;
+            // Tpay API v3 wysyła transactionId (nie title) w notyfikacji
+            var transactionId = notification.ContainsKey("transactionId") 
+                ? notification["transactionId"]?.ToString() 
+                : (notification.ContainsKey("title") ? notification["title"]?.ToString() : null);
+            
             var status = notification.ContainsKey("status") ? notification["status"]?.ToString() : null;
             
             if (string.IsNullOrEmpty(transactionId) || string.IsNullOrEmpty(status))

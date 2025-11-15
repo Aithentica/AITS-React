@@ -1,10 +1,114 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
+import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom'
 import './index.css'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js'
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+)
 import { loadTranslations, type Translations } from './i18n'
+import GoogleCalendarIntegrationForm from './features/google/GoogleCalendarIntegration'
+import {
+  ensureFullHour,
+  formatDateTimeWithZone,
+  formatDateWithZone,
+  formatForDateTimeLocalInput,
+  formatTimeWithZone
+} from './features/sessions/dateTimeUtils'
+import { getWeekCalendarLabels } from './features/sessions/weekCalendarLabels'
+import UsersAdmin from './features/admin/UsersAdmin'
+import TherapistsAdmin from './features/admin/TherapistsAdmin'
+import NavBar from './components/NavBar'
+import ActivityTracker from './components/ActivityTracker'
+import ActivityLogAdmin from './features/admin/ActivityLogAdmin'
+import SessionTypeManagement from './features/session-types/SessionTypeManagement'
+import { TherapistProfileManagement } from './features/therapist/TherapistProfileManagement'
+import { TherapistDocumentsManagement } from './features/therapist/TherapistDocumentsManagement'
+import SessionDetails from './features/sessions/SessionDetails'
+import PatientForm from './features/patients/PatientForm'
+import Dashboard from './features/dashboard/Dashboard'
+
+const Roles = {
+  Administrator: 'Administrator',
+  Terapeuta: 'Terapeuta',
+  Pacjent: 'Pacjent'
+} as const
+
+// Komponent ochrony routingu - sprawdza czy użytkownik ma odpowiednią rolę
+function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles: string[] }) {
+  const navigate = useNavigate()
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const storedRoles = localStorage.getItem('roles')
+    if (!storedRoles) {
+      navigate('/login')
+      return
+    }
+    try {
+      const parsed = JSON.parse(storedRoles)
+      const userRoles = Array.isArray(parsed) ? parsed : []
+      
+      // Sprawdź czy użytkownik ma jedną z dozwolonych ról
+      const hasAccess = allowedRoles.some(role => userRoles.includes(role))
+      
+      if (!hasAccess) {
+        // Pacjent próbuje dostać się do niedozwolonej strony - przekieruj do dashboardu
+        if (userRoles.includes(Roles.Pacjent)) {
+          navigate('/dashboard')
+        } else {
+          navigate('/login')
+        }
+      }
+    } catch {
+      navigate('/login')
+    } finally {
+      setLoading(false)
+    }
+  }, [allowedRoles, navigate])
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Ładowanie...</div>
+  }
+
+  const storedRoles = localStorage.getItem('roles')
+  if (!storedRoles) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(storedRoles)
+    const userRoles = Array.isArray(parsed) ? parsed : []
+    const hasAccess = allowedRoles.some(role => userRoles.includes(role))
+    
+    if (!hasAccess) {
+      return null
+    }
+  } catch {
+    return null
+  }
+
+  return <>{children}</>
+}
 
 function LoginPage() {
-  const navigate = useNavigate()
   const [culture, setCulture] = useState<'pl'|'en'>('pl')
   const [t, setT] = useState<Translations>({})
   const [email, setEmail] = useState('')
@@ -13,9 +117,9 @@ function LoginPage() {
 
   useEffect(() => {
     loadTranslations(culture).then(setT)
-    const token = localStorage.getItem('token')
-    if (token) navigate('/dashboard')
-  }, [culture, navigate])
+    // Nie przekierowuj automatycznie - pozwól użytkownikowi się zalogować
+    // Automatyczne przekierowanie może powodować pętle jeśli token jest nieprawidłowy
+  }, [culture])
 
   async function login(e: React.FormEvent) {
     e.preventDefault()
@@ -33,6 +137,7 @@ function LoginPage() {
       const data = await res.json()
       localStorage.setItem('token', data.token)
       localStorage.setItem('roles', JSON.stringify(data.roles || []))
+      console.log('Zalogowano pomyślnie. Role:', data.roles)
       window.location.href = '/dashboard'
     } catch (err) {
       setError('Błąd połączenia z serwerem')
@@ -52,11 +157,25 @@ function LoginPage() {
         <form className="space-y-4" onSubmit={login}>
           <div>
             <label className="block text-sm mb-1">{t['login.email'] ?? 'E-mail'}</label>
-            <input value={email} onChange={e=>setEmail(e.target.value)} type="email" className="w-full border rounded px-3 py-2" required />
+            <input 
+              value={email} 
+              onChange={e=>setEmail(e.target.value)} 
+              type="email" 
+              className="w-full border rounded px-3 py-2" 
+              autoComplete="email"
+              required 
+            />
           </div>
       <div>
             <label className="block text-sm mb-1">{t['login.password'] ?? 'Hasło'}</label>
-            <input value={password} onChange={e=>setPassword(e.target.value)} type="password" className="w-full border rounded px-3 py-2" required />
+            <input 
+              value={password} 
+              onChange={e=>setPassword(e.target.value)} 
+              type="password" 
+              className="w-full border rounded px-3 py-2" 
+              autoComplete="current-password"
+              required 
+            />
           </div>
           {error && <div className="text-red-600 text-sm">{error}</div>}
           <button type="submit" className="w-full bg-blue-600 text-white rounded py-2 hover:bg-blue-700">{t['login.submit'] ?? 'Zaloguj'}</button>
@@ -76,257 +195,12 @@ interface Session {
   googleMeetLink?: string
 }
 
-function Dashboard() {
-  const navigate = useNavigate()
-  const [culture, setCulture] = useState<'pl'|'en'>('pl')
-  const [t, setT] = useState<Translations>({})
-  const [roles, setRoles] = useState<string[]>([])
-  const [todaySessions, setTodaySessions] = useState<Session[]>([])
-  const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState({ today: 0, scheduled: 0, completed: 0 })
-  const [error, setError] = useState<string | null>(null)
+// Interfejsy przeniesione do features/patients/PatientForm.tsx
+// Dashboard jest teraz importowany z features/dashboard/Dashboard.tsx
 
-  useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      navigate('/login')
-      return
-    }
-    const storedRoles = localStorage.getItem('roles')
-    if (storedRoles) {
-      try {
-        setRoles(JSON.parse(storedRoles))
-      } catch (e) {
-        console.error('Error parsing roles:', e)
-        setRoles([])
-      }
-    }
-    loadTranslations(culture).then(setT).catch(err => console.error('Error loading translations:', err))
-    loadDashboardData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  async function loadDashboardData() {
-    try {
-      setError(null)
-      const token = localStorage.getItem('token')
-      if (!token) {
-        setError('Brak tokenu autoryzacji')
-        return
-      }
-      
-      const headers: HeadersInit = { 
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-      
-      const [todayRes, allRes] = await Promise.all([
-        fetch('/api/sessions/today', { headers }).catch(err => {
-          console.error('Error fetching today sessions:', err)
-          return { ok: false, status: 500 } as Response
-        }),
-        fetch('/api/sessions?page=1&pageSize=1000', { headers }).catch(err => {
-          console.error('Error fetching all sessions:', err)
-          return { ok: false, status: 500 } as Response
-        })
-      ])
-      
-      if (!todayRes.ok && todayRes.status !== 500) {
-        if (todayRes.status === 401 || todayRes.status === 403) {
-          setError('Brak uprawnień. Zaloguj się ponownie.')
-          localStorage.removeItem('token')
-          navigate('/login')
-          return
-        }
-        setError(`Błąd ładowania sesji: ${todayRes.status}`)
-      }
-      
-      if (todayRes.ok) {
-        try {
-          const today = await todayRes.json()
-          console.log('Today sessions loaded:', today)
-          setTodaySessions(Array.isArray(today) ? today : [])
-          setStats(prev => ({ ...prev, today: Array.isArray(today) ? today.length : 0 }))
-        } catch (e) {
-          console.error('Error parsing today sessions:', e)
-          setTodaySessions([])
-        }
-      } else {
-        console.error('Failed to load today sessions:', todayRes.status, await todayRes.text().catch(() => ''))
-      }
-      
-      if (allRes.ok) {
-        try {
-          const all = await allRes.json()
-          if (all && all.sessions && Array.isArray(all.sessions)) {
-            const now = new Date()
-            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-            const scheduled = all.sessions.filter((s: Session) => s.statusId === 1).length
-            const completed = all.sessions.filter((s: Session) => 
-              s.statusId === 3 && new Date(s.startDateTime) >= monthStart
-            ).length
-            setStats(prev => ({ ...prev, scheduled, completed }))
-          }
-        } catch (e) {
-          console.error('Error parsing all sessions:', e)
-        }
-      }
-    } catch (err) {
-      console.error('Error loading dashboard:', err)
-      setError('Błąd połączenia z serwerem')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  function logout() {
-    localStorage.removeItem('token')
-    localStorage.removeItem('roles')
-    navigate('/login')
-  }
-
-  function formatTime(dateStr: string) {
-    const d = new Date(dateStr)
-    return d.toLocaleTimeString(culture === 'pl' ? 'pl-PL' : 'en-US', { hour: '2-digit', minute: '2-digit' })
-  }
-
-  function getStatusName(statusId: number) {
-    // TODO: Pobieranie z tłumaczeń enumów
-    const statusNames: Record<number, string> = { 1: 'Zaplanowana', 2: 'Potwierdzona', 3: 'Zakończona', 4: 'Anulowana' }
-    return statusNames[statusId] || 'Nieznany'
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center gap-4">
-              <h1 className="text-xl font-semibold">{t['dashboard.title'] ?? 'Kokpit'}</h1>
-              <button onClick={() => navigate('/sessions')} className="text-blue-600 hover:text-blue-800">
-                {t['dashboard.allSessions'] ?? 'Wszystkie sesje'}
-              </button>
-              <button onClick={() => navigate('/patients')} className="text-blue-600 hover:text-blue-800">
-                {t['patients.title'] ?? 'Pacjenci'}
-              </button>
-            </div>
-            <div className="flex items-center gap-4">
-              <select value={culture} onChange={e=>setCulture(e.target.value as 'pl'|'en')} className="border rounded px-2 py-1">
-                <option value="pl">PL</option>
-                <option value="en">EN</option>
-              </select>
-              <button onClick={logout} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
-                Wyloguj
-        </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-      <main className="max-w-7xl mx-auto py-8 px-6">
-        <div className="space-y-8">
-          {/* Statystyki */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-8 rounded-lg shadow-lg border-l-4 border-blue-500">
-              <h3 className="text-xl font-bold text-gray-700 mb-4">{t['dashboard.sessionsToday'] ?? 'Sesje dzisiaj'}</h3>
-              <p className="text-4xl font-bold text-blue-600">{loading ? '...' : stats.today}</p>
-            </div>
-            <div className="bg-white p-8 rounded-lg shadow-lg border-l-4 border-green-500">
-              <h3 className="text-xl font-bold text-gray-700 mb-4">{t['dashboard.sessionsScheduled'] ?? 'Zaplanowane'}</h3>
-              <p className="text-4xl font-bold text-green-600">{loading ? '...' : stats.scheduled}</p>
-            </div>
-            <div className="bg-white p-8 rounded-lg shadow-lg border-l-4 border-purple-500">
-              <h3 className="text-xl font-bold text-gray-700 mb-4">{t['dashboard.sessionsCompleted'] ?? 'Zakończone w tym miesiącu'}</h3>
-              <p className="text-4xl font-bold text-purple-600">{loading ? '...' : stats.completed}</p>
-            </div>
-          </div>
-
-          {/* Dzisiejsze sesje */}
-          <div className="bg-white rounded-lg shadow-lg">
-            <div className="p-6 border-b-2 border-gray-200 flex justify-between items-center">
-              <h2 className="text-2xl font-bold">{t['dashboard.todaySessions'] ?? 'Dzisiejsze sesje'}</h2>
-              <button onClick={loadDashboardData} className="text-blue-600 hover:text-blue-800 font-semibold text-base px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors">Odśwież</button>
-            </div>
-            {error ? (
-              <div className="p-8 text-center text-red-600 text-lg font-semibold">{error}</div>
-            ) : loading ? (
-              <div className="p-8 text-center text-gray-500 text-lg">Ładowanie...</div>
-            ) : todaySessions.length === 0 ? (
-              <div className="p-8 text-center">
-                <p className="text-gray-600 text-lg mb-6">Brak sesji na dzisiaj</p>
-                <button onClick={() => navigate('/sessions/new')} className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 shadow-md transition-all font-semibold">
-                  {t['sessions.new'] ?? 'Utwórz nową sesję'}
-                </button>
-              </div>
-            ) : (
-              <div className="divide-y-2 divide-gray-100">
-                {todaySessions.map(session => (
-                  <div key={session.id} className="p-6 hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => navigate(`/sessions/${session.id}`)}>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-bold text-xl mb-2 text-gray-800">
-                          {session.patient.firstName} {session.patient.lastName}
-                        </p>
-                        <p className="text-gray-600 text-base mb-2">{session.patient.email}</p>
-                        <p className="text-gray-700 text-base font-medium">
-                          {formatTime(session.startDateTime)} - {formatTime(session.endDateTime)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <span className={`px-4 py-2 rounded-lg text-base font-semibold ${
-                          session.statusId === 2 ? 'bg-green-100 text-green-800' :
-                          session.statusId === 3 ? 'bg-blue-100 text-blue-800' :
-                          session.statusId === 4 ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {getStatusName(session.statusId)}
-                        </span>
-                        {session.googleMeetLink && (
-                          <a href={session.googleMeetLink} target="_blank" rel="noopener noreferrer" 
-                             className="block mt-3 text-blue-600 hover:text-blue-800 text-base font-semibold underline">
-                            Google Meet
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </main>
-    </div>
-  )
-}
+// Usunięto lokalną funkcję Dashboard() - używamy importowanego komponentu z features/dashboard/Dashboard.tsx
 
 // Komponent nawigacji wspólny dla wszystkich stron
-function NavBar({ culture, setCulture, onLogout, navigate }: { culture: 'pl'|'en', setCulture: (c: 'pl'|'en') => void, onLogout: () => void, navigate: (path: string) => void }) {
-  const [t, setT] = useState<Translations>({})
-  useEffect(() => { loadTranslations(culture).then(setT) }, [culture])
-  
-  return (
-      <nav className="bg-white shadow-md">
-      <div className="max-w-7xl mx-auto px-6 py-4">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-6">
-            <button onClick={() => navigate('/dashboard')} className="text-xl font-bold text-gray-800 hover:text-blue-600 transition-colors">{t['dashboard.title'] ?? 'Kokpit'}</button>
-            <button onClick={() => navigate('/sessions')} className="text-base font-semibold text-blue-600 hover:text-blue-800 transition-colors">{t['sessions.title'] ?? 'Sesje'}</button>
-            <button onClick={() => navigate('/calendar')} className="text-base font-semibold text-blue-600 hover:text-blue-800 transition-colors">Kalendarz</button>
-            <button onClick={() => navigate('/patients')} className="text-base font-semibold text-blue-600 hover:text-blue-800 transition-colors">{t['patients.title'] ?? 'Pacjenci'}</button>
-          </div>
-          <div className="flex items-center gap-4">
-            <select value={culture} onChange={e=>setCulture(e.target.value as 'pl'|'en')} className="border-2 border-gray-300 rounded-lg px-4 py-2 text-base focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-              <option value="pl">PL</option>
-              <option value="en">EN</option>
-            </select>
-            <button onClick={onLogout} className="bg-red-600 text-white px-6 py-2.5 rounded-lg hover:bg-red-700 shadow-md transition-all font-semibold">Wyloguj</button>
-          </div>
-        </div>
-      </div>
-    </nav>
-  )
-}
-
 // Lista sesji
 function SessionsList() {
   const navigate = useNavigate()
@@ -352,13 +226,24 @@ function SessionsList() {
       if (filters.toDate) params.append('toDate', filters.toDate)
       if (filters.patientId) params.append('patientId', filters.patientId)
       
-      const res = await fetch(`/api/sessions?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setSessions(data.sessions || [])
+      const headers: HeadersInit = { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       }
+      
+      const res = await fetch(`/api/sessions?${params.toString()}`, { headers })
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          navigate('/login')
+          return
+        }
+        console.error('Error loading sessions:', res.status)
+        setLoading(false)
+        return
+      }
+      
+      const data = await res.json()
+      setSessions(Array.isArray(data.sessions) ? data.sessions : [])
     } catch (err) {
       console.error('Error loading sessions:', err)
     } finally {
@@ -366,69 +251,120 @@ function SessionsList() {
     }
   }
 
-  function logout() {
-    localStorage.removeItem('token')
-    localStorage.removeItem('roles')
-    navigate('/login')
+  function formatTime(dateStr: string) {
+    return formatTimeWithZone(dateStr, culture)
   }
 
-  function formatDateTime(dateStr: string) {
-    const d = new Date(dateStr)
-    return d.toLocaleString(culture === 'pl' ? 'pl-PL' : 'en-US')
+  function getStatusName(statusId: number) {
+    const statusNames: Record<number, string> = { 1: 'Zaplanowana', 2: 'Potwierdzona', 3: 'Zakończona', 4: 'Anulowana' }
+    return statusNames[statusId] || 'Nieznany'
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <NavBar culture={culture} setCulture={setCulture} onLogout={logout} navigate={navigate} />
-      <main className="max-w-7xl mx-auto py-8 px-6">
-        <div className="space-y-8">
+      <NavBar culture={culture} setCulture={setCulture} onLogout={() => { localStorage.removeItem('token'); localStorage.removeItem('roles'); navigate('/login') }} navigate={navigate} />
+      <main className="w-full py-8 px-8">
+        <div className="space-y-6">
           <div className="flex justify-between items-center">
-            <h1>{t['sessions.title'] ?? 'Sesje'}</h1>
-            <button onClick={() => navigate('/sessions/new')} className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 shadow-md transition-all font-semibold">
+            <h1 className="text-3xl font-bold text-gray-900">{t['sessions.title'] ?? 'Sesje'}</h1>
+            <button
+              onClick={() => navigate('/sessions/new')}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 shadow-md transition-all font-semibold"
+            >
               {t['sessions.new'] ?? 'Nowa sesja'}
             </button>
           </div>
 
           {/* Filtry */}
-          <div className="bg-white p-6 rounded-lg shadow-lg grid grid-cols-1 md:grid-cols-4 gap-6">
-            <select value={filters.statusId} onChange={e=>setFilters({...filters, statusId: e.target.value})} className="border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-              <option value="">Wszystkie statusy</option>
-              <option value="1">Zaplanowana</option>
-              <option value="2">Potwierdzona</option>
-              <option value="3">Zakończona</option>
-              <option value="4">Anulowana</option>
-            </select>
-            <input type="date" value={filters.fromDate} onChange={e=>setFilters({...filters, fromDate: e.target.value})} className="border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" placeholder="Od" />
-            <input type="date" value={filters.toDate} onChange={e=>setFilters({...filters, toDate: e.target.value})} className="border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" placeholder="Do" />
-            <button onClick={loadSessions} className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 shadow-md transition-all font-semibold">Filtruj</button>
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t['sessions.filter.status'] ?? 'Status'}</label>
+                <select
+                  value={filters.statusId}
+                  onChange={(e) => setFilters({ ...filters, statusId: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="">{t['sessions.filter.all'] ?? 'Wszystkie'}</option>
+                  <option value="1">{t['sessions.status.planned'] ?? 'Zaplanowana'}</option>
+                  <option value="2">{t['sessions.status.confirmed'] ?? 'Potwierdzona'}</option>
+                  <option value="3">{t['sessions.status.completed'] ?? 'Zakończona'}</option>
+                  <option value="4">{t['sessions.status.cancelled'] ?? 'Anulowana'}</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t['sessions.filter.fromDate'] ?? 'Od daty'}</label>
+                <input
+                  type="date"
+                  value={filters.fromDate}
+                  onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t['sessions.filter.toDate'] ?? 'Do daty'}</label>
+                <input
+                  type="date"
+                  value={filters.toDate}
+                  onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={loadSessions}
+                  className="w-full bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  {t['sessions.filter.apply'] ?? 'Filtruj'}
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Lista */}
-          {loading ? <div className="text-center p-8 text-lg text-gray-500">Ładowanie...</div> :
-           sessions.length === 0 ? <div className="text-center p-8 text-lg text-gray-500">Brak sesji</div> :
-           <div className="bg-white rounded-lg shadow-lg divide-y-2 divide-gray-100">
-             {sessions.map((s: any) => (
-               <div key={s.id} className="p-6 hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => navigate(`/sessions/${s.id}`)}>
-                 <div className="flex justify-between items-start">
-                   <div>
-                     <p className="font-bold text-xl mb-2 text-gray-800">{s.patient.firstName} {s.patient.lastName}</p>
-                     <p className="text-gray-600 text-base mb-2">{s.patient.email}</p>
-                     <p className="text-gray-700 text-base font-medium">{formatDateTime(s.startDateTime)}</p>
-                   </div>
-                   <div className="text-right">
-                     <span className="px-4 py-2 rounded-lg text-base font-semibold bg-gray-100 text-gray-800">{s.statusId === 1 ? 'Zaplanowana' : s.statusId === 2 ? 'Potwierdzona' : s.statusId === 3 ? 'Zakończona' : 'Anulowana'}</span>
-                     <p className="mt-3 font-bold text-lg">{s.price} PLN</p>
-                   </div>
-                 </div>
-               </div>
-             ))}
-           </div>
-          }
+          {/* Lista sesji */}
+          {loading ? (
+            <div className="text-center py-12 text-gray-500">{t['sessions.loading'] ?? 'Ładowanie...'}</div>
+          ) : sessions.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">{t['sessions.empty'] ?? 'Brak sesji'}</div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-lg divide-y divide-gray-200">
+              {sessions.map((session: any) => (
+                <div
+                  key={session.id}
+                  className="p-6 hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={() => navigate(`/sessions/${session.id}`)}
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-bold text-xl mb-2 text-gray-800">
+                        {session.patient?.firstName} {session.patient?.lastName}
+                      </p>
+                      <p className="text-gray-600 text-base mb-2">{session.patient?.email}</p>
+                      <p className="text-gray-700 text-base font-medium">
+                        {formatTime(session.startDateTime)} - {formatTime(session.endDateTime)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className={`px-4 py-2 rounded-lg text-base font-semibold ${
+                        session.statusId === 2 ? 'bg-green-100 text-green-800' :
+                        session.statusId === 3 ? 'bg-blue-100 text-blue-800' :
+                        session.statusId === 4 ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {getStatusName(session.statusId)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
     </div>
   )
 }
+
 
 // Lista pacjentów
 function PatientsList() {
@@ -466,7 +402,7 @@ function PatientsList() {
   return (
     <div className="min-h-screen bg-gray-50">
       <NavBar culture={culture} setCulture={setCulture} onLogout={logout} navigate={navigate} />
-      <main className="max-w-7xl mx-auto py-8 px-6">
+      <main className="w-full py-8 px-8">
         <div className="space-y-8">
           <div className="flex justify-between items-center">
             <h1>{t['patients.title'] ?? 'Pacjenci'}</h1>
@@ -474,7 +410,7 @@ function PatientsList() {
               {t['patients.new'] ?? 'Nowy pacjent'}
             </button>
           </div>
-          {loading ? <div className="text-center p-8 text-lg text-gray-500">Ładowanie...</div> :
+          {loading ? <div className="text-center p-8 text-lg text-gray-500">Ładowanie...</div> :
            patients.length === 0 ? <div className="text-center p-8 text-lg text-gray-500">Brak pacjentów</div> :
            <div className="bg-white rounded-lg shadow-lg divide-y-2 divide-gray-100">
              {patients.map((p: any) => (
@@ -502,284 +438,6 @@ function PatientFormWithId() {
   return <PatientForm id={id ? Number(id) : undefined} />
 }
 
-// Formularz pacjenta
-function PatientForm({ id }: { id?: number }) {
-  const navigate = useNavigate()
-  const [culture, setCulture] = useState<'pl'|'en'>('pl')
-  const [t, setT] = useState<Translations>({})
-  const [form, setForm] = useState({
-    firstName: '', lastName: '', email: '', phone: '', 
-    dateOfBirth: '', gender: '', pesel: '',
-    street: '', streetNumber: '', apartmentNumber: '', city: '', postalCode: '', country: 'Polska',
-    notes: ''
-  })
-  const [loading, setLoading] = useState(!!id)
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) { navigate('/login'); return }
-    loadTranslations(culture).then(setT)
-    if (id) loadPatient()
-  }, [culture, id, navigate])
-
-  async function loadPatient() {
-    try {
-      const token = localStorage.getItem('token')
-      const res = await fetch(`/api/patients/${id}`, { headers: { 'Authorization': `Bearer ${token}` } })
-      if (res.ok) {
-        const p = await res.json()
-        setForm({
-          firstName: p.firstName || '', lastName: p.lastName || '', email: p.email || '', phone: p.phone || '',
-          dateOfBirth: p.dateOfBirth ? p.dateOfBirth.split('T')[0] : '', gender: p.gender || '', pesel: p.pesel || '',
-          street: p.street || '', streetNumber: p.streetNumber || '', apartmentNumber: p.apartmentNumber || '',
-          city: p.city || '', postalCode: p.postalCode || '', country: p.country || 'Polska',
-          notes: p.notes || ''
-        })
-      }
-    } catch (err) {
-      console.error('Error loading patient:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function save() {
-    setSaving(true)
-    try {
-      const token = localStorage.getItem('token')
-      const url = id ? `/api/patients/${id}` : '/api/patients'
-      const method = id ? 'PUT' : 'POST'
-      const payload = {
-        ...form,
-        dateOfBirth: form.dateOfBirth ? new Date(form.dateOfBirth).toISOString() : null
-      }
-      const res = await fetch(url, {
-        method,
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-      if (res.ok) navigate('/patients')
-      else {
-        const error = await res.text()
-        alert(`Błąd: ${error}`)
-      }
-    } catch (err) {
-      console.error('Error saving patient:', err)
-      alert('Błąd podczas zapisywania')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  function logout() {
-    localStorage.removeItem('token')
-    localStorage.removeItem('roles')
-    navigate('/login')
-  }
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Ładowanie...</div>
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <NavBar culture={culture} setCulture={setCulture} onLogout={logout} navigate={navigate} />
-      <main className="max-w-4xl mx-auto py-8 px-6">
-        <h1>{id ? t['patients.edit'] ?? 'Edytuj pacjenta' : t['patients.new'] ?? 'Nowy pacjent'}</h1>
-        <div className="bg-white p-8 rounded-lg shadow-lg space-y-8">
-          <div className="form-section">
-            <h2>Dane osobowe</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="form-group">
-                <label>{t['patients.firstName'] ?? 'Imię'}</label>
-                <input value={form.firstName} onChange={e=>setForm({...form, firstName: e.target.value})} className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" required />
-              </div>
-              <div className="form-group">
-                <label>{t['patients.lastName'] ?? 'Nazwisko'}</label>
-                <input value={form.lastName} onChange={e=>setForm({...form, lastName: e.target.value})} className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" required />
-              </div>
-              <div className="form-group">
-                <label>{t['patients.email'] ?? 'E-mail'}</label>
-                <input type="email" value={form.email} onChange={e=>setForm({...form, email: e.target.value})} className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" required />
-              </div>
-              <div className="form-group">
-                <label>{t['patients.phone'] ?? 'Telefon'}</label>
-                <input type="tel" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
-              </div>
-              <div className="form-group">
-                <label>{t['patients.dateOfBirth'] ?? 'Data urodzenia'}</label>
-                <input type="date" value={form.dateOfBirth} onChange={e=>setForm({...form, dateOfBirth: e.target.value})} className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
-              </div>
-              <div className="form-group">
-                <label>{t['patients.gender'] ?? 'Płeć'}</label>
-                <select value={form.gender} onChange={e=>setForm({...form, gender: e.target.value})} className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                  <option value="">-- Wybierz --</option>
-                  <option value="M">Mężczyzna</option>
-                  <option value="F">Kobieta</option>
-                  <option value="Other">Inna</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>{t['patients.pesel'] ?? 'PESEL'}</label>
-                <input value={form.pesel} onChange={e=>setForm({...form, pesel: e.target.value})} maxLength={11} className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
-              </div>
-            </div>
-          </div>
-
-          <div className="form-section">
-            <h2>Dane adresowe</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2 form-group">
-                <label>{t['patients.street'] ?? 'Ulica'}</label>
-                <input value={form.street} onChange={e=>setForm({...form, street: e.target.value})} className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
-              </div>
-              <div className="form-group">
-                <label>{t['patients.streetNumber'] ?? 'Numer'}</label>
-                <input value={form.streetNumber} onChange={e=>setForm({...form, streetNumber: e.target.value})} className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
-              </div>
-              <div className="form-group">
-                <label>{t['patients.apartmentNumber'] ?? 'Nr lokalu'}</label>
-                <input value={form.apartmentNumber} onChange={e=>setForm({...form, apartmentNumber: e.target.value})} className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
-              </div>
-              <div className="form-group">
-                <label>{t['patients.city'] ?? 'Miasto'}</label>
-                <input value={form.city} onChange={e=>setForm({...form, city: e.target.value})} className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
-              </div>
-              <div className="form-group">
-                <label>{t['patients.postalCode'] ?? 'Kod pocztowy'}</label>
-                <input value={form.postalCode} onChange={e=>setForm({...form, postalCode: e.target.value})} className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
-              </div>
-              <div className="form-group">
-                <label>{t['patients.country'] ?? 'Kraj'}</label>
-                <input value={form.country} onChange={e=>setForm({...form, country: e.target.value})} className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
-              </div>
-            </div>
-          </div>
-
-          <div className="form-section">
-            <label>{t['patients.notes'] ?? 'Notatki'}</label>
-            <textarea value={form.notes} onChange={e=>setForm({...form, notes: e.target.value})} className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" rows={5} />
-          </div>
-
-          <div className="flex gap-6 pt-4">
-            <button onClick={save} disabled={saving} className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-md transition-all">
-              {t['sessions.save'] ?? 'Zapisz'}
-            </button>
-            <button onClick={() => navigate('/patients')} className="bg-gray-600 text-white px-8 py-3 rounded-lg hover:bg-gray-700 shadow-md transition-all">Anuluj</button>
-          </div>
-        </div>
-      </main>
-    </div>
-  )
-}
-
-// Szczegóły sesji
-function SessionDetails() {
-  const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
-  const [culture, setCulture] = useState<'pl'|'en'>('pl')
-  const [t, setT] = useState<Translations>({})
-  const [session, setSession] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (!id) return
-    const token = localStorage.getItem('token')
-    if (!token) { navigate('/login'); return }
-    loadTranslations(culture).then(setT)
-  }, [culture, id, navigate])
-
-  useEffect(() => {
-    if (id) loadSession()
-  }, [id])
-
-  async function loadSession() {
-    if (!id) return
-    try {
-      const token = localStorage.getItem('token')
-      const res = await fetch(`/api/sessions/${id}`, { headers: { 'Authorization': `Bearer ${token}` } })
-      if (res.ok) setSession(await res.json())
-    } catch (err) {
-      console.error('Error loading session:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function sendNotification() {
-    if (!id) return
-    try {
-      const token = localStorage.getItem('token')
-      await fetch(`/api/sessions/${id}/send-notification?culture=${culture}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      alert('Powiadomienie wysłane')
-    } catch (err) {
-      console.error('Error sending notification:', err)
-    }
-  }
-
-  function logout() {
-    localStorage.removeItem('token')
-    localStorage.removeItem('roles')
-    navigate('/login')
-  }
-
-  if (loading || !session) return <div className="min-h-screen flex items-center justify-center">Ładowanie...</div>
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <NavBar culture={culture} setCulture={setCulture} onLogout={logout} navigate={navigate} />
-      <main className="max-w-4xl mx-auto py-8 px-6">
-        <h1>{t['sessions.details'] ?? 'Szczegóły sesji'}</h1>
-        <div className="bg-white p-8 rounded-lg shadow-lg space-y-6">
-          <div className="form-group">
-            <label className="text-base font-semibold text-gray-700">{t['sessions.patient'] ?? 'Pacjent'}</label>
-            <p className="text-lg text-gray-800 mt-2">{session.patient.firstName} {session.patient.lastName}</p>
-            <p className="text-base text-gray-600">{session.patient.email}</p>
-            {session.patient.phone && <p className="text-base text-gray-600">{session.patient.phone}</p>}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="form-group">
-              <label className="text-base font-semibold text-gray-700">{t['sessions.startTime'] ?? 'Data rozpoczęcia'}</label>
-              <p className="text-lg text-gray-800 mt-2">{new Date(session.startDateTime).toLocaleString()}</p>
-            </div>
-            <div className="form-group">
-              <label className="text-base font-semibold text-gray-700">{t['sessions.endTime'] ?? 'Data zakończenia'}</label>
-              <p className="text-lg text-gray-800 mt-2">{new Date(session.endDateTime).toLocaleString()}</p>
-            </div>
-            <div className="form-group">
-              <label className="text-base font-semibold text-gray-700">{t['sessions.status'] ?? 'Status'}</label>
-              <p className="text-lg text-gray-800 mt-2">{session.statusId === 1 ? 'Zaplanowana' : session.statusId === 2 ? 'Potwierdzona' : session.statusId === 3 ? 'Zakończona' : 'Anulowana'}</p>
-            </div>
-            <div className="form-group">
-              <label className="text-base font-semibold text-gray-700">{t['sessions.price'] ?? 'Cena'}</label>
-              <p className="text-lg font-bold text-gray-800 mt-2">{session.price} PLN</p>
-            </div>
-          </div>
-          {session.googleMeetLink && (
-            <div className="form-group">
-              <label className="text-base font-semibold text-gray-700">{t['sessions.googleMeet'] ?? 'Link Google Meet'}</label>
-              <a href={session.googleMeetLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-lg font-semibold underline block mt-2">{session.googleMeetLink}</a>
-            </div>
-          )}
-          {session.notes && (
-            <div className="form-group">
-              <label className="text-base font-semibold text-gray-700">{t['sessions.notes'] ?? 'Notatki'}</label>
-              <p className="text-base text-gray-800 mt-2 whitespace-pre-wrap">{session.notes}</p>
-            </div>
-          )}
-          <div className="flex gap-6 pt-4">
-            <button onClick={() => id && navigate(`/sessions/${id}/edit`)} className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 shadow-md transition-all font-semibold">{t['sessions.edit'] ?? 'Edytuj'}</button>
-            <button onClick={sendNotification} className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 shadow-md transition-all font-semibold">{t['sessions.sendNotification'] ?? 'Wyślij powiadomienie'}</button>
-            <button onClick={() => navigate('/sessions')} className="bg-gray-600 text-white px-8 py-3 rounded-lg hover:bg-gray-700 shadow-md transition-all font-semibold">Powrót</button>
-          </div>
-        </div>
-      </main>
-    </div>
-  )
-}
-
 // Formularz sesji
 function SessionForm() {
   const { id } = useParams<{ id: string }>()
@@ -798,10 +456,13 @@ function SessionForm() {
     if (!token) { navigate('/login'); return }
     loadTranslations(culture).then(setT)
     loadPatients()
-    if (id) loadSession()
-    else setLoading(false)
+    if (id) {
+      loadSession()
+    } else {
+      setLoading(false)
+    }
   }, [culture, id, navigate])
-
+  
   async function loadPatients() {
     try {
       const token = localStorage.getItem('token')
@@ -812,23 +473,26 @@ function SessionForm() {
     }
   }
 
+
   async function loadSession() {
     if (!id) return
     try {
+      setLoading(true)
       const token = localStorage.getItem('token')
       const res = await fetch(`/api/sessions/${id}`, { headers: { 'Authorization': `Bearer ${token}` } })
       if (res.ok) {
         const s = await res.json()
         const start = new Date(s.startDateTime)
         const duration = Math.round((new Date(s.endDateTime).getTime() - start.getTime()) / 60000)
-        setForm({
+        const newForm = {
           patientId: s.patient.id.toString(),
-          startDateTime: start.toISOString().slice(0, 16),
+          startDateTime: ensureFullHour(formatForDateTimeLocalInput(start)),
           durationMinutes: duration.toString(),
           price: s.price.toString(),
           notes: s.notes || '',
           sendNotification: false
-        })
+        }
+        setForm(newForm)
       }
     } catch (err) {
       console.error('Error loading session:', err)
@@ -847,8 +511,9 @@ function SessionForm() {
       const token = localStorage.getItem('token')
       const url = id ? `/api/sessions/${id}` : '/api/sessions'
       const method = id ? 'PUT' : 'POST'
-      const startDate = new Date(form.startDateTime)
-      const payload = {
+      const normalizedStart = ensureFullHour(form.startDateTime)
+      const startDate = new Date(normalizedStart)
+      const payload: any = {
         patientId: Number(form.patientId),
         startDateTime: startDate.toISOString(),
         durationMinutes: Number(form.durationMinutes),
@@ -887,13 +552,13 @@ function SessionForm() {
     navigate('/login')
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Ładowanie...</div>
+  if (loading) return <div className="min-h-screen flex items-center justify-center">Ładowanie...</div>
 
   return (
     <div className="min-h-screen bg-gray-50">
       <NavBar culture={culture} setCulture={setCulture} onLogout={logout} navigate={navigate} />
-      <main className="max-w-4xl mx-auto py-8 px-6">
-        <h1>{id ? t['sessions.edit'] ?? 'Edytuj sesję' : t['sessions.new'] ?? 'Nowa sesja'}</h1>
+      <main className="max-w-7xl mx-auto py-8 px-8">
+        <h1>{id ? t['sessions.edit'] ?? 'Edytuj sesją™' : t['sessions.new'] ?? 'Nowa sesja'}</h1>
         <div className="bg-white p-8 rounded-lg shadow-lg space-y-6">
           <div className="form-group">
             <label>{t['sessions.patient'] ?? 'Pacjent'} *</label>
@@ -904,10 +569,33 @@ function SessionForm() {
               ))}
             </select>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="form-group">
               <label>{t['sessions.startTime'] ?? 'Data rozpoczęcia'} *</label>
-              <input type="datetime-local" value={form.startDateTime} onChange={e=>setForm({...form, startDateTime: e.target.value})} className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" required />
+              <div className="grid grid-cols-2 gap-4">
+                <input
+                  type="date"
+                  value={form.startDateTime.split('T')[0] || ''}
+                  onChange={e => {
+                    const timePart = form.startDateTime.split('T')[1] || '00:00'
+                    setForm({ ...form, startDateTime: `${e.target.value}T${timePart}` })
+                  }}
+                  className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  required
+                />
+                <input
+                  type="time"
+                  value={form.startDateTime.split('T')[1]?.substring(0, 5) || '00:00'}
+                  step={3600}
+                  onChange={e => {
+                    const datePart = form.startDateTime.split('T')[0] || ''
+                    const newValue = ensureFullHour(`${datePart}T${e.target.value}`)
+                    setForm({ ...form, startDateTime: newValue })
+                  }}
+                  className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  required
+                />
+              </div>
             </div>
             <div className="form-group">
               <label>Czas trwania (min) *</label>
@@ -922,6 +610,7 @@ function SessionForm() {
             <label>{t['sessions.notes'] ?? 'Notatki'}</label>
             <textarea value={form.notes} onChange={e=>setForm({...form, notes: e.target.value})} className="w-full border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200" rows={5} />
           </div>
+          
           {!id && (
             <div className="form-group">
               <label className="flex items-center gap-3 cursor-pointer">
@@ -1032,11 +721,11 @@ function WeekCalendar() {
   }
 
   function formatTime(dateStr: string) {
-    return new Date(dateStr).toLocaleTimeString(culture === 'pl' ? 'pl-PL' : 'en-US', { hour: '2-digit', minute: '2-digit' })
+    return formatTimeWithZone(dateStr, culture)
   }
 
   function formatDate(date: Date) {
-    return date.toLocaleDateString(culture === 'pl' ? 'pl-PL' : 'en-US', { day: 'numeric', month: 'short' })
+    return formatDateWithZone(date, culture, { day: 'numeric', month: 'short' })
   }
 
   function logout() {
@@ -1049,18 +738,19 @@ function WeekCalendar() {
   const dayNames = culture === 'pl' 
     ? ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Nie']
     : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const labels = getWeekCalendarLabels(culture, t)
 
   return (
     <div className="min-h-screen bg-gray-50">
       <NavBar culture={culture} setCulture={setCulture} onLogout={logout} navigate={navigate} />
-      <main className="max-w-7xl mx-auto py-8 px-6">
+      <main className="w-full py-8 px-8">
         <div className="space-y-8">
           <div className="flex justify-between items-center">
-            <h1>Kalendarz tygodniowy</h1>
+            <h1>{labels.title}</h1>
             <div className="flex gap-4 items-center">
-              <button onClick={previousWeek} className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 shadow-md transition-all font-semibold">← Poprzedni</button>
-              <button onClick={todayWeek} className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 shadow-md transition-all font-semibold">Dzisiaj</button>
-              <button onClick={nextWeek} className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 shadow-md transition-all font-semibold">Następny →</button>
+              <button onClick={previousWeek} className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 shadow-md transition-all font-semibold">{labels.previousWeek}</button>
+              <button onClick={todayWeek} className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 shadow-md transition-all font-semibold">{labels.today}</button>
+              <button onClick={nextWeek} className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 shadow-md transition-all font-semibold">{labels.nextWeek}</button>
               <button onClick={() => navigate('/sessions/new')} className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 shadow-md transition-all font-semibold">
                 {t['sessions.new'] ?? 'Nowa sesja'}
               </button>
@@ -1068,7 +758,7 @@ function WeekCalendar() {
           </div>
 
           {loading ? (
-            <div className="text-center p-8 text-lg text-gray-500">Ładowanie...</div>
+            <div className="text-center p-8 text-lg text-gray-500">Ładowanie...</div>
           ) : (
             <div className="bg-white rounded-lg shadow-lg overflow-hidden">
               <div className="grid grid-cols-7 border-b-2 border-gray-200">
@@ -1083,7 +773,7 @@ function WeekCalendar() {
               </div>
               <div className="grid grid-cols-7 divide-x-2 divide-gray-100">
                 {weekDays.map((date, idx) => (
-                  <div key={idx} className="min-h-[500px] p-4 bg-white">
+                  <div key={idx} className="min-h-[600px] p-4 bg-white">
                     {getDaySessions(date).map(session => (
                       <div 
                         key={session.id} 
@@ -1109,20 +799,334 @@ function WeekCalendar() {
   )
 }
 
+// Widok sesji dla pacjentów
+function PatientSessionsList() {
+  const navigate = useNavigate()
+  const [culture, setCulture] = useState<'pl'|'en'>('pl')
+  const [sessions, setSessions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token) { navigate('/login'); return }
+    loadSessions()
+  }, [culture, navigate])
+
+  async function loadSessions() {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('token')
+      const res = await fetch('/api/patient/sessions', { headers: { 'Authorization': `Bearer ${token}` } })
+      if (res.ok) {
+        const data = await res.json()
+        setSessions(Array.isArray(data) ? data : [])
+      }
+    } catch (err) {
+      console.error('Error loading sessions:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem('token')
+    localStorage.removeItem('roles')
+    navigate('/login')
+  }
+
+  function formatDateTime(dateStr: string) {
+    return formatDateTimeWithZone(dateStr, culture)
+  }
+
+  function getPaymentStatusText(payment: any) {
+    if (!payment) return 'Nieopłacona'
+    if (payment.statusId === 2) return 'Opłacona'
+    if (payment.statusId === 3) return 'Nieudana'
+    return 'Oczekująca'
+  }
+
+  function getPaymentStatusColor(payment: any) {
+    if (!payment) return 'bg-red-100 text-red-800'
+    if (payment.statusId === 2) return 'bg-green-100 text-green-800'
+    if (payment.statusId === 3) return 'bg-red-100 text-red-800'
+    return 'bg-yellow-100 text-yellow-800'
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <NavBar culture={culture} setCulture={setCulture} onLogout={logout} navigate={navigate} />
+      <main className="w-full py-8 px-8">
+        <div className="space-y-8">
+          <div className="flex justify-between items-center">
+            <h1 className="text-3xl font-bold text-gray-800">Moje sesje</h1>
+          </div>
+
+          {loading ? <div className="text-center p-8 text-lg text-gray-500">Ładowanie...</div> :
+           sessions.length === 0 ? <div className="text-center p-8 text-lg text-gray-500">Brak sesji</div> :
+           <div className="bg-white rounded-lg shadow-lg divide-y-2 divide-gray-100">
+             {sessions.map((s: any) => (
+               <div
+                 key={s.id}
+                 className="p-6 hover:bg-gray-50 cursor-pointer transition-colors"
+                 onClick={() => navigate(`/patient/sessions/${s.id}`)}
+               >
+                 <div className="flex justify-between items-start">
+                   <div>
+                     <p className="text-gray-700 text-base font-medium mb-2">{formatDateTime(s.startDateTime)}</p>
+                     <p className="text-gray-600 text-sm mb-2">
+                       Sesja standardowa
+                     </p>
+                     <p className="text-gray-800 text-lg font-bold">{s.price} PLN</p>
+                   </div>
+                   <div className="text-right">
+                     <span className={`px-4 py-2 rounded-lg text-base font-semibold ${getPaymentStatusColor(s.payment)}`}>
+                       {getPaymentStatusText(s.payment)}
+                     </span>
+                     {s.isPaid && s.payment?.completedAt && (
+                       <p className="mt-2 text-sm text-gray-600">
+                         Opłacona: {formatDateTime(s.payment.completedAt)}
+                       </p>
+                     )}
+                   </div>
+                 </div>
+               </div>
+             ))}
+           </div>
+          }
+        </div>
+      </main>
+    </div>
+  )
+}
+
+// Szczegóły sesji dla pacjentów
+function PatientSessionDetails() {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const [culture, setCulture] = useState<'pl'|'en'>('pl')
+  const [session, setSession] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [processingPayment, setProcessingPayment] = useState(false)
+
+  useEffect(() => {
+    if (!id) return
+    const token = localStorage.getItem('token')
+    if (!token) { navigate('/login'); return }
+  }, [culture, id, navigate])
+
+  useEffect(() => {
+    if (id) loadSession()
+  }, [id])
+
+  async function loadSession() {
+    if (!id) return
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('token')
+      const res = await fetch(`/api/patient/sessions/${id}`, { headers: { 'Authorization': `Bearer ${token}` } })
+      if (res.ok) {
+        const data = await res.json()
+        setSession(data)
+      }
+    } catch (err) {
+      console.error('Error loading session:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function initiatePayment() {
+    if (!id || !session) return
+    try {
+      setProcessingPayment(true)
+      const token = localStorage.getItem('token')
+      const res = await fetch(`/api/patient/sessions/${id}/initiate-payment`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.paymentUrl) {
+          window.location.href = data.paymentUrl
+        } else {
+          alert('Nie udało się utworzyć płatności')
+        }
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Nie udało się zainicjować płatności')
+      }
+    } catch (err) {
+      console.error('Error initiating payment:', err)
+      alert('Błąd podczas inicjacji płatności')
+    } finally {
+      setProcessingPayment(false)
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem('token')
+    localStorage.removeItem('roles')
+    navigate('/login')
+  }
+
+  if (loading || !session) return <div className="min-h-screen flex items-center justify-center">Ładowanie...</div>
+
+  function formatDateTime(dateStr: string) {
+    return formatDateTimeWithZone(dateStr, culture)
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <NavBar culture={culture} setCulture={setCulture} onLogout={logout} navigate={navigate} />
+      <main className="max-w-7xl mx-auto py-8 px-8">
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h1 className="text-3xl font-bold text-gray-800">Szczegóły sesji</h1>
+            <button onClick={() => navigate('/patient/sessions')} className="text-blue-600 hover:text-blue-800 font-semibold">
+              ← Powrót do listy
+            </button>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-lg p-6 space-y-6">
+            <div>
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Informacje o sesji</h2>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-gray-600">Data i godzina</p>
+                  <p className="text-lg font-semibold text-gray-800">{formatDateTime(session.startDateTime)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Cena</p>
+                  <p className="text-2xl font-bold text-gray-800">{session.price} PLN</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Status płatności</h2>
+              {session.isPaid ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-green-800 font-semibold mb-2">✓ Sesja opłacona</p>
+                  {session.payment?.completedAt && (
+                    <p className="text-sm text-green-700">
+                      Data płatności: {formatDateTime(session.payment.completedAt)}
+                    </p>
+                  )}
+                  {session.payment?.amount && (
+                    <p className="text-sm text-green-700">
+                      Kwota: {session.payment.amount} PLN
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <p className="text-yellow-800 font-semibold mb-2">⚠ Sesja nieopłacona</p>
+                  {session.canPay && (
+                    <button
+                      onClick={initiatePayment}
+                      disabled={processingPayment}
+                      className="mt-4 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 shadow-md transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {processingPayment ? 'Przetwarzanie...' : 'Zapłać przez Tpay'}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {session.googleMeetLink && (
+              <div className="border-t pt-6">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Link do spotkania</h2>
+                <a
+                  href={session.googleMeetLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 font-semibold underline"
+                >
+                  Otwórz Google Meet
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
+  )
+}
+
+function GoogleCalendarIntegrationPage() {
+  const navigate = useNavigate()
+  const [culture, setCulture] = useState<'pl'|'en'>('pl')
+  const [t, setT] = useState<Translations>({})
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      navigate('/login')
+      return
+    }
+    loadTranslations(culture).then(setT).catch(err => console.error('Error loading translations:', err))
+  }, [culture, navigate])
+
+  function logout() {
+    localStorage.removeItem('token')
+    localStorage.removeItem('roles')
+    navigate('/login')
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <NavBar culture={culture} setCulture={setCulture} onLogout={logout} navigate={navigate} />
+      <main className="max-w-7xl mx-auto py-8 px-8">
+        <div className="space-y-8">
+          <div className="bg-white rounded-lg shadow-lg p-8 space-y-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">{t['integrations.googleCalendar.title'] ?? 'Integracja z Google Calendar'}</h1>
+              <p className="mt-2 text-base text-gray-600">
+                {t['integrations.googleCalendar.description'] ?? 'Połącz swoje konto terapeuty z Google Calendar, aby automatycznie tworzyć wydarzenia i linki Google Meet dla sesji.'}
+              </p>
+            </div>
+            <GoogleCalendarIntegrationForm returnUrl="/integrations/google-calendar" />
+          </div>
+
+          <div className="bg-white rounded-lg shadow-lg p-8 space-y-4">
+            <h2 className="text-2xl font-bold text-gray-900">{t['integrations.googleCalendar.helpTitle'] ?? 'Najczęstsze problemy'}</h2>
+            <ul className="list-disc space-y-2 pl-6 text-sm text-gray-700">
+              <li>{t['integrations.googleCalendar.help.scope'] ?? 'Upewnij się, że podczas autoryzacji zaznaczasz wszystkie wymagane zakresy (kalendarz i Google Meet). Bez nich wydarzenia nie zostaną utworzone.'}</li>
+              <li>{t['integrations.googleCalendar.help.calendarAccess'] ?? 'Konto terapeuty musi mieć prawo zapisu do kalendarza skonfigurowanego w aplikacji. Jeśli pojawia się błąd uprawnień, sprawdź ustawienia kalendarza Google.'}</li>
+              <li>{t['integrations.googleCalendar.help.refresh'] ?? 'W razie utraty połączenia odłącz kalendarz i wykonaj ponowną autoryzację. Pamiętaj, aby przeprowadzać ją po każdej zmianie hasła w Google.'}</li>
+            </ul>
+          </div>
+        </div>
+      </main>
+    </div>
+  )
+}
+
 function App() {
   return (
     <BrowserRouter>
+      <ActivityTracker />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/sessions" element={<SessionsList />} />
-        <Route path="/sessions/new" element={<SessionForm />} />
-        <Route path="/sessions/:id/edit" element={<SessionForm />} />
-        <Route path="/sessions/:id" element={<SessionDetails />} />
-        <Route path="/calendar" element={<WeekCalendar />} />
-        <Route path="/patients" element={<PatientsList />} />
-        <Route path="/patients/new" element={<PatientForm />} />
-        <Route path="/patients/:id" element={<PatientFormWithId />} />
+        <Route path="/sessions" element={<ProtectedRoute allowedRoles={['Terapeuta', 'TerapeutaFreeAccess', 'Administrator']}><SessionsList /></ProtectedRoute>} />
+        <Route path="/sessions/new" element={<ProtectedRoute allowedRoles={['Terapeuta', 'TerapeutaFreeAccess', 'Administrator']}><SessionForm /></ProtectedRoute>} />
+        <Route path="/sessions/:id/edit" element={<ProtectedRoute allowedRoles={['Terapeuta', 'TerapeutaFreeAccess', 'Administrator']}><SessionForm /></ProtectedRoute>} />
+        <Route path="/sessions/:id" element={<ProtectedRoute allowedRoles={['Terapeuta', 'TerapeutaFreeAccess', 'Administrator']}><SessionDetails /></ProtectedRoute>} />
+        <Route path="/calendar" element={<ProtectedRoute allowedRoles={['Terapeuta', 'TerapeutaFreeAccess', 'Administrator']}><WeekCalendar /></ProtectedRoute>} />
+        <Route path="/patients" element={<ProtectedRoute allowedRoles={['Terapeuta', 'TerapeutaFreeAccess', 'Administrator']}><PatientsList /></ProtectedRoute>} />
+        <Route path="/patients/new" element={<ProtectedRoute allowedRoles={['Terapeuta', 'TerapeutaFreeAccess', 'Administrator']}><PatientForm /></ProtectedRoute>} />
+        <Route path="/patients/:id" element={<ProtectedRoute allowedRoles={['Terapeuta', 'TerapeutaFreeAccess', 'Administrator']}><PatientFormWithId /></ProtectedRoute>} />
+        <Route path="/integrations/google-calendar" element={<ProtectedRoute allowedRoles={['Terapeuta', 'TerapeutaFreeAccess', 'Administrator']}><GoogleCalendarIntegrationPage /></ProtectedRoute>} />
+        <Route path="/session-types" element={<ProtectedRoute allowedRoles={['Administrator']}><SessionTypeManagement /></ProtectedRoute>} />
+        <Route path="/therapist/profile" element={<ProtectedRoute allowedRoles={['Terapeuta', 'TerapeutaFreeAccess']}><TherapistProfileManagement /></ProtectedRoute>} />
+        <Route path="/therapist/documents" element={<ProtectedRoute allowedRoles={['Terapeuta', 'TerapeutaFreeAccess']}><TherapistDocumentsManagement /></ProtectedRoute>} />
+        <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['Administrator']}><UsersAdmin /></ProtectedRoute>} />
+        <Route path="/admin/therapists" element={<ProtectedRoute allowedRoles={['Administrator']}><TherapistsAdmin /></ProtectedRoute>} />
+        <Route path="/admin/activity" element={<ProtectedRoute allowedRoles={['Administrator']}><ActivityLogAdmin /></ProtectedRoute>} />
+        <Route path="/patient/sessions" element={<ProtectedRoute allowedRoles={['Pacjent']}><PatientSessionsList /></ProtectedRoute>} />
+        <Route path="/patient/sessions/:id" element={<ProtectedRoute allowedRoles={['Pacjent']}><PatientSessionDetails /></ProtectedRoute>} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
@@ -1130,3 +1134,7 @@ function App() {
 }
 
 export default App
+
+
+
+

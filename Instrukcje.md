@@ -415,6 +415,32 @@ curl -X 'POST' \
 - **Baza danych**: Wymaga lokalnego SQL Server dostępnego pod adresem `192.168.50.228`
 - **Token JWT**: Ważny przez 12 godzin
 
+### ☁️ Konfiguracja usług Azure dla transkrypcji
+
+#### 1. Azure Speech Service (Cognitive Services Speech)
+- Utwórz zasób w Azure Portal → **Create a resource** → **AI + Machine Learning** → **Speech**.
+- Region: zalecane `West Europe` (zgodne z `appsettings`).
+- Zanotuj `Key` oraz `Endpoint` i uzupełnij je w `server/AITS.Api/appsettings.Development.json` w sekcji `AzureSpeech`.
+- W production dodaj wartości w `appsettings.json`/KeyVaultie – klucze nie powinny trafiać do repozytorium.
+- Włącz **Speaker diarization** w portalu (Preview → Conversation diarization) – wymagane do wydzielania maks. 3 mówców.
+- Jeżeli przetwarzasz pliki wideo: zainstaluj FFmpeg na serwerze (lub ustaw zmienną `FFMPEG_PATH` wskazującą na binarkę). W systemach Windows pobierz https://ffmpeg.org/download.html i dodaj katalog `bin` do `PATH`.
+
+#### 2. Azure OpenAI (model GPT-4.1)
+- Utwórz zasób **Azure OpenAI** (wymaga zatwierdzonego wniosku).
+- Skonfiguruj deployment modelu `gpt-4.1` w wersji `2025-01-01-preview` zgodnie z `AzureAI.ModelName/ModelVersion`.
+- W `appsettings.Development.json` uzupełnij `AzureAI.Endpoint` oraz `AzureAI.ApiKey` pod własne wartości (dostarczone dane są przykładowe).
+- W środowisku produkcyjnym umieść klucze w KeyVault lub zmiennych środowiskowych.
+
+#### 3. Konfiguracja klienta
+- Część front-endu wykorzystuje SignalR (`/hubs/transcriptions`) – upewnij się, że reverse proxy (Nginx/Ingress) przepuszcza ruch WebSocket.
+- Przy pracy lokalnej: `npm install` (instaluje `@microsoft/signalr`).
+- Nagrywanie na żywo wymaga zgody przeglądarki na mikrofon (HTTPS w środowisku produkcyjny).
+
+#### 4. Limity i kontrola kosztów
+- Batch transcription (pliki audio/wideo) rozliczane za czas audio – monitoruj w **Cost Management**.
+- Realtime transcription korzysta z ciągłego strumienia – rozważ ograniczenia długości nagrania i monitorowanie liczby aktywnych połączeń.
+- W Azure Monitor skonfiguruj alerty na metryk `SpeechServicesUsage` dla uniknięcia niekontrolowanych kosztów.
+
 ### 📚 Dodatkowe zasoby
 
 - Dokumentacja Docker Compose: https://docs.docker.com/compose/
