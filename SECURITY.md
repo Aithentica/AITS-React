@@ -17,11 +17,13 @@ dotnet user-secrets init
 dotnet user-secrets set "ConnectionStrings:Default" "Server=MSI;Database=AITS-React;Trusted_Connection=true;..."
 dotnet user-secrets set "Jwt:Key" "YOUR_SECRET_KEY_MIN_32_CHARS"
 dotnet user-secrets set "SMS:ApiToken" "YOUR_SMS_TOKEN"
-dotnet user-secrets set "Tpay:ClientSecret" "YOUR_TPAY_SECRET"
+dotnet user-secrets set "Tpay:ClientId" "YOUR_TPAY_CLIENT_ID"
+dotnet user-secrets set "Tpay:ClientSecret" "YOUR_TPAY_CLIENT_SECRET"
 dotnet user-secrets set "Email:Username" "your-email@gmail.com"
 dotnet user-secrets set "Email:Password" "your-app-password"
-dotnet user-secrets set "GoogleOAuth:ClientId" "YOUR_CLIENT_ID"
-dotnet user-secrets set "GoogleOAuth:ClientSecret" "YOUR_CLIENT_SECRET"
+dotnet user-secrets set "GoogleOAuth:ClientId" "YOUR_GOOGLE_CLIENT_ID"
+dotnet user-secrets set "GoogleOAuth:ClientSecret" "YOUR_GOOGLE_CLIENT_SECRET"
+dotnet user-secrets set "GoogleCalendar:CalendarId" "YOUR_GOOGLE_CALENDAR_ID"
 dotnet user-secrets set "AzureAI:ApiKey" "YOUR_AZURE_AI_KEY"
 dotnet user-secrets set "AzureSpeech:SubscriptionKey" "YOUR_AZURE_SPEECH_KEY"
 ```
@@ -33,6 +35,8 @@ copy server/AITS.Api/appsettings.Development.Example.json server/AITS.Api/appset
 copy server/AITS.Api/google-credentials.example.json server/AITS.Api/google-credentials.json
 ```
 
+**UWAGA:** Plik `google-credentials.json` nie jest używany przez aplikację - aplikacja używa konfiguracji `GoogleOAuth:ClientId` i `GoogleOAuth:ClientSecret` z `appsettings.json` lub User Secrets. Plik `google-credentials.json` może być przydatny do innych celów, ale nie jest wymagany do działania aplikacji.
+
 ### 2. Production - Azure App Service Configuration
 
 W Azure Portal:
@@ -41,11 +45,13 @@ W Azure Portal:
    - `ConnectionStrings__Default`
    - `Jwt__Key`
    - `SMS__ApiToken`
+   - `Tpay__ClientId`
    - `Tpay__ClientSecret`
    - `Email__Username`
    - `Email__Password`
    - `GoogleOAuth__ClientId`
    - `GoogleOAuth__ClientSecret`
+   - `GoogleCalendar__CalendarId`
    - `AzureAI__ApiKey`
    - `AzureSpeech__SubscriptionKey`
 
@@ -87,9 +93,10 @@ SQL_CONNECTION_STRING=Server=host.docker.internal,1433;Database=AITS-React;User 
 
 1. **Natychmiast zmień wszystkie hasła i klucze API**
 2. **Wygeneruj nowe klucze w Azure Portal**
-3. **Wygeneruj nowe Google OAuth credentials**
-4. **Zmień hasła do kont email**
-5. **Sprawdź logi dostępu w Azure Portal**
+3. **Wygeneruj nowe Google OAuth credentials w Google Cloud Console**
+4. **Wygeneruj nowe klucze Tpay w panelu Tpay**
+5. **Zmień hasła do kont email**
+6. **Sprawdź logi dostępu w Azure Portal i Google Cloud Console**
 
 ## ✅ Pliki Wykluczone z Git
 
