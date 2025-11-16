@@ -1,0 +1,49 @@
+name: Trigger auto deployment for aits-react-client
+
+# When this action will be executed
+on:
+  # Automatically trigger it when detected changes in repo
+  push:
+    branches: 
+      [ main ]
+    paths:
+    - '**'
+    - '.github/workflows/aits-react-client-AutoDeployTrigger-abc279ec-b324-4065-8aad-e8795997d40a.yml'
+
+  # Allow manual trigger 
+  workflow_dispatch:      
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions: 
+      id-token: write #This is required for requesting the OIDC JWT Token
+      contents: read #Required when GH token is used to authenticate with private repo
+
+    steps:
+      - name: Checkout to the branch
+        uses: actions/checkout@v2
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AITSREACTCLIENT_AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AITSREACTCLIENT_AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AITSREACTCLIENT_AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push container image to registry
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          appSourcePath: ${{ github.workspace }}
+          _dockerfilePathKey_: _dockerfilePath_
+          _targetLabelKey_: _targetLabel_
+          registryUrl: aitsregistry.azurecr.io
+          registryUsername: ${{ secrets.AITSREACTCLIENT_REGISTRY_USERNAME }}
+          registryPassword: ${{ secrets.AITSREACTCLIENT_REGISTRY_PASSWORD }}
+          containerAppName: aits-react-client
+          resourceGroup: AITS-Production
+          imageToBuild: aitsregistry.azurecr.io/aits-react-client:${{ github.sha }}
+          _buildArgumentsKey_: |
+            _buildArgumentsValues_
+
+
